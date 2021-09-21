@@ -130,3 +130,6 @@ dmypy.json
 
 # PyTorch files/models
 *.pth
+
+# Ignore Image folders
+images/
