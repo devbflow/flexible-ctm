@@ -1,0 +1,76 @@
+# Config document
+# This is used to configure the entire process, which components to use etc.
+# With this config, it is easier to change and compare experimental setups.
+#
+# A side effect of using a config as pivot point is the hard dependency on it.
+# Adding/removing features requires changes in the code, so to make that easier,
+# there are indicators for where the respective parts of this config are used.
+#
+# This config is supposed to be well readable and easy to understand,
+# hence the longer names.
+
+
+### MODEL CONFIG ###
+model:
+    parts:
+        # disabled parts become identity blocks or are omitted
+        backbone: True
+        ctm: True
+        metric: True
+
+    backbone:
+        name: "resnet18"
+        pretrained: True
+
+    ctm:
+        parts:
+            # disabled parts become identity blocks
+            concentrator: True
+            projector: True
+            reshaper: True
+
+        # block type and number can be specified for each component
+        # implemented block types are found in ctm/ctm_model.py
+        # for conv blocks, the number at the end specifies kernel size
+        concentrator:
+            structure:
+                btype: "conv2d3"
+                bnum: 1
+                activation: "relu"
+                batchnorm: True
+
+        projector:
+            structure:
+                btype: "conv2d3"
+                bnum: 1
+                activation: "relu"
+                batchnorm: True
+
+        reshaper:
+            structure:
+                btype: "conv2d3"
+                bnum: 1
+                activation: "relu"
+                batchnorm: True
+
+    metric:
+        name: "cosine"
+
+### MODE CONFIG ###
+mode: "train" # from ["train", "test", "val"]
+
+### HARDWARE CONFIG ###
+hardware: "gpu" # from ["cpu", "gpu"]
+
+### TRAIN CONFIG ###
+train:
+    batch_size: 64
+    epochs: 5
+    optimizer: "adam"
+
+### DATASET CONFIG ###
+dataset: "miniimagenet"
+
+### LOGGING CONFIG ###
+logging:
+    log_on: False
