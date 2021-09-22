@@ -23,33 +23,27 @@ model:
         pretrained: True
 
     ctm:
-        parts:
-            # disabled parts become identity blocks
-            concentrator: True
-            projector: True
-            reshaper: True
-
         # block type and number can be specified for each component
         # implemented block types are found in ctm/ctm_model.py
         # for conv blocks, the number at the end specifies kernel size
         concentrator:
             structure:
-                btype: "conv2d3"
-                bnum: 1
+                type: "conv2d3"
+                num: 1
                 activation: "relu"
                 batchnorm: True
 
         projector:
             structure:
-                btype: "conv2d3"
-                bnum: 1
+                type: "conv2d3"
+                num: 1
                 activation: "relu"
                 batchnorm: True
 
         reshaper:
             structure:
-                btype: "conv2d3"
-                bnum: 1
+                type: "conv2d3"
+                num: 1
                 activation: "relu"
                 batchnorm: True
 
@@ -69,7 +63,12 @@ train:
     optimizer: "adam"
 
 ### DATASET CONFIG ###
-dataset: "miniimagenet"
+dataset: 
+    name: "miniimagenet"
+    datatype: "img"
+    channels: 3
+    n_way: 10
+    k_shot: 5
 
 ### LOGGING CONFIG ###
 logging:
