@@ -67,6 +67,7 @@ dataset:
     name: "miniimagenet"
     datatype: "img"
     channels: 3
+    shape: [224, 224] # can be int or list of ints
     n_way: 10
     k_shot: 5
 
