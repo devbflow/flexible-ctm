@@ -73,6 +73,7 @@ def get_conv_params(in_dim, out_dim,
         padding = [padding]
     if type(dilation) == int:
         dilation = [dilation]
+
     for d in dilation:
         for p in padding:
             for s in stride:
@@ -86,12 +87,8 @@ class CTM(nn.Module):
 
     def __init__(self, config, dataset_config):
         super().__init__()
-        #TODO: parse dataset config
-        self.dataset = "miniimagenet"
-        self.input_channels = 3
         self.cfg = config
-        self.n = 10
-        self.k = 5
+        self._init_dataset(dataset_config)
 
         self.concentrator = Concentrator(self.cfg['concentrator'], self.n, self.k)
         self.projector = Projector(self.cfg['projector'], self.n)
@@ -99,8 +96,34 @@ class CTM(nn.Module):
         self._init_reshaper()
 
     def _init_reshaper(self):
-        #TODO
-        pass
+        """
+        Set Reshaper by passing a zero tensor through Concentrator and Projector.
+        Also saves output channels as class variable.
+        """
+        zeros = torch.zeros(1, self.input_channels, *self.input_dim)
+        zero_output = self.projector(self.concentrator(zeros))
+        self.output_channels = zero_output.shape[1]
+        self.reshaper = Reshaper(in_channels=self.input_channels,
+                                 out_channels=self.output_channels,
+                                 in_dims=self.input_dim,
+                                 out_dims=zero_output.shape[2:],
+                                 auto_params=True,
+                                 params=None)
+
+    def _init_dataset(self, dataset_config):
+        """Setup dataset-related class variables."""
+        self.dataset = dataset_config['name']
+        self.input_channels = dataset_config['channels']
+        shape = dataset_config['shape']
+        if type(shape) == int and dataset_config['datatype'] == 'img':
+            self.input_dim = (shape, shape)
+        elif type(shape) == list:
+            self.input_dim = tuple(shape)
+        else:
+            raise TypeError("Dataset shape type mismatch in config file. (list or int required)")
+        self.n = dataset_config['n_way']
+        self.k = dataset_config['k_shot']
+
 
 
 class Concentrator(nn.Module):
@@ -125,7 +148,7 @@ class Concentrator(nn.Module):
         elif type(self.layers) == nn.Sequential:
             return self.layers(X)
         else:
-            raise ValueError("Concentrator layers are neither ModuleList nor Sequential!")
+            raise TypeError("Concentrator layers are neither ModuleList nor Sequential!")
 
 
 class Projector(nn.Module):
@@ -150,7 +173,7 @@ class Projector(nn.Module):
         elif type(self.layers) == nn.Sequential:
             return self.layers(X)
         else:
-            raise ValueError("Concentrator layers are neither ModuleList nor Sequential!")
+            raise TypeError("Concentrator layers are neither ModuleList nor Sequential!")
 
 class Reshaper(nn.Module):
     """Simple Reshaper"""
@@ -163,7 +186,10 @@ class Reshaper(nn.Module):
         # if auto_params is True, search for parameters in param space, else assume params to be given
         if auto_params:
             params = get_conv_params(in_dims, out_dims)
-
+            if params is None:
+                raise TypeError("get_conv_params returned None!")
+        if params is None and not auto_params:
+            raise ValueError("Did not receive parameter dict while auto_params is False.")
         self.layers = nn.Conv2d(in_channels=in_channels,
                                 out_channels=out_channels,
                                 kernel_size=params['kernel_size'],
