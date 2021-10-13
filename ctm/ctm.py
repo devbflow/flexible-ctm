@@ -140,6 +140,15 @@ class CTM(nn.Module):
         self.projector = Projector(self.cfg['projector'], self.n)
 
         self._init_reshaper()
+        self._test_consistency()
+
+    def _test_consistency(self):
+        """Quick check for consistency."""
+        z = torch.zeros(1, 3, 224, 224)
+        p = self.projector(self.concentrator(z)) # projector output
+        r = self.reshaper(z)
+        assert p.shape == r.shape
+
 
     def _init_reshaper(self):
         """
@@ -276,3 +285,4 @@ class Reshaper(nn.Module):
 
     def forward(self, X):
         return self.layers(X)
+
