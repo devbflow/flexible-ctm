@@ -86,10 +86,51 @@ def get_conv_params(in_dim, out_dim,
 
 
 class CTM(nn.Module):
+    """
+    CTM module.
+
+    Attributes
+    ----------
+    cfg : dict
+        CTM configuration dict containing information about the structure of all parts
+    concentrator : Concentrator
+        Concentrator module
+    projector : Projector
+        Projector module
+    reshaper : Reshaper
+        Reshaper module
+    dataset : str
+        Name of the dataset for which the CTM instance is used
+    input_channels : int
+        Number of input channels of the data
+    output_channels : int
+        Number of output channels of CTM output
+    input_dim : int or tuple
+        Input dimensions of the data
+    output_dim : tuple
+        Output dimensionsof the data
+    n : int
+        N in the N-way K-shot learning scenario
+    k : int
+        K in the N-way K-shot learning scenario
+
+    Methods
+    -------
+    _init_reshaper()
+        Initializes the Reshaper and certain attributes
+    _init_dataset()
+        Initializes the dataset configuration necessary for CTM
+
+    """
 
     def __init__(self, config, dataset_config):
         """
-
+        Parameters
+        ----------
+        config : dict
+            CTM configuration dict as parsed from config file
+        dataset_config : dict
+            Dataset configuration dict as parsed from config file
         """
         super().__init__()
         self.cfg = config
@@ -102,22 +143,23 @@ class CTM(nn.Module):
 
     def _init_reshaper(self):
         """
-        Set Reshaper by passing a zero tensor through Concentrator and Projector.
-        Also saves output channels as class variable.
+        Set Reshaper by passing a zero tensor through Concentrator and Projector to get the correct shape.
+        Also saves output channels as attribute.
         """
 
         zeros = torch.zeros(1, self.input_channels, *self.input_dim)
         zero_output = self.projector(self.concentrator(zeros))
         self.output_channels = zero_output.shape[1]
+        self.output_dim = zero_output.shape[2:]
         self.reshaper = Reshaper(in_channels=self.input_channels,
                                  out_channels=self.output_channels,
                                  in_dims=self.input_dim,
-                                 out_dims=zero_output.shape[2:],
+                                 out_dims=self.output_dim,
                                  auto_params=True,
                                  params=None)
 
     def _init_dataset(self, dataset_config):
-        """Setup dataset-related class variables."""
+        """Setup dataset-related attributes."""
 
         self.dataset = dataset_config['name']
         self.input_channels = dataset_config['channels']
@@ -131,6 +173,9 @@ class CTM(nn.Module):
         self.n = dataset_config['n_way']
         self.k = dataset_config['k_shot']
 
+    def forward(self):
+        #TODO
+        pass
 
 
 class Concentrator(nn.Module):
