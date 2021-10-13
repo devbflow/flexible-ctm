@@ -42,8 +42,10 @@ def get_conv_params(in_dim, out_dim,
                     padding=[0],
                     dilation=[1]):
     """
-    Function to search for fitting parameters to auto-set reshaper conv parameters.
+    Function to search for fitting parameters to automatically set reshaper conv parameters.
     Returns a dictionary with fitting key and value pairs.
+    It returns the first solution found, prioritizing as follows.
+        kernel_size > stride > padding > dilation
 
     Parameters
     ----------
@@ -86,6 +88,9 @@ def get_conv_params(in_dim, out_dim,
 class CTM(nn.Module):
 
     def __init__(self, config, dataset_config):
+        """
+
+        """
         super().__init__()
         self.cfg = config
         self._init_dataset(dataset_config)
@@ -100,6 +105,7 @@ class CTM(nn.Module):
         Set Reshaper by passing a zero tensor through Concentrator and Projector.
         Also saves output channels as class variable.
         """
+
         zeros = torch.zeros(1, self.input_channels, *self.input_dim)
         zero_output = self.projector(self.concentrator(zeros))
         self.output_channels = zero_output.shape[1]
@@ -112,6 +118,7 @@ class CTM(nn.Module):
 
     def _init_dataset(self, dataset_config):
         """Setup dataset-related class variables."""
+
         self.dataset = dataset_config['name']
         self.input_channels = dataset_config['channels']
         shape = dataset_config['shape']
@@ -176,9 +183,34 @@ class Projector(nn.Module):
             raise TypeError("Concentrator layers are neither ModuleList nor Sequential!")
 
 class Reshaper(nn.Module):
-    """Simple Reshaper"""
+    """Reshaper module.
+
+    Transforms given data into the same shape as the output of the Projector.
+    Thus, the mask returned by the Projector can be applied to the transformed data.
+
+    Attributes
+    ----------
+    layers : nn.Module
+        The convolutional layer of the Reshaper. Name was kept in plural for consistency.
+    """
 
     def __init__(self, in_channels, out_channels, in_dims, out_dims, auto_params=True, params=None):
+        """
+        Parameters
+        ----------
+        in_channels : int
+            Number of input channels of data to reshape
+        out_channels : int
+            Number of resulting output channels
+        in_dims : int, tuple or list
+            Input dimensions of a data point
+        out_dims : int, tuple or list
+            Output dimensions of a data point
+        auto_params : bool
+            If True, uses get_conv_params to find fitting parameters. Default is True
+        params : dict
+            If auto_params is False, contains the parameters necessary for initializing the Conv layer. Default is None.
+        """
         super().__init__()
         # the reshaper needs not to be configured and can stay a simple Conv layer
         # to keep consistency, 'layers' stays as var name
