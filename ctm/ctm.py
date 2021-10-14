@@ -117,7 +117,7 @@ class CTM(nn.Module):
     input_dim : int or tuple
         Input dimensions of the data
     output_dim : tuple
-        Output dimensionsof the data
+        Output dimensions of the data
     n : int
         N in the N-way K-shot learning scenario
     k : int
@@ -193,12 +193,34 @@ class CTM(nn.Module):
         self.k = dataset_config['k_shot']
 
     def forward(self, support_set, query_set):
-        
-        pass
+        # reshape support and query sets into further embedded form
+        supp_r = self.reshaper(support_set)
+        query_r = self.reshaper(query_set)
+
+        o = self.concentrator(support_set) # notation as in paper
+        p = self.projector(o)
+
+        improved_supp = supp_r * p
+        improved_query = query_r * p
+
+        return improved_supp, improved_query
 
 
 class Concentrator(nn.Module):
-    """Simple Concentrator"""
+    """Simple Concentrator
+
+    Attributes
+    ----------
+    cfg : dict
+        Concentrator configuration dict containing information about the structure
+    n : int
+        N in the N-way K-shot learning scenario
+    k : int
+        K in the N-way K-shot learning scenario
+    layers : nn.ModuleList or nn.Sequential
+        convolutional layers in the Concentrator
+
+    """
 
     def __init__(self, config, n_way: int, k_shot: int):
         super().__init__()
@@ -208,19 +230,18 @@ class Concentrator(nn.Module):
         self.layers = make_layers(self.cfg['structure']) # is ModuleList or Sequential
 
     def forward(self, X):
-        # reshape to (N, K*c, d, d)
-        X = X.view(self.n, self.k*X.shape[1], X.shape[2], X.shape[3])
-
+        # pass through layers first to reduce dimensions
         if type(self.layers) == nn.ModuleList:
             Y = X
             for l in self.layers:
                 Y = l(Y)
-            return Y
         elif type(self.layers) == nn.Sequential:
-            return self.layers(X)
+            Y = self.layers(X)
         else:
             raise TypeError("Concentrator layers are neither ModuleList nor Sequential!")
-
+        # average over samples in each class (reshape to (N, K*c, d, d))
+        Y = Y.view(self.n, self.k, Y.shape[1], Y.shape[2], Y.shape[3])
+        return torch.mean(Y, dim=1)
 
 class Projector(nn.Module):
     """Simple Projector"""
