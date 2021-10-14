@@ -88,6 +88,14 @@ def get_conv_params(in_dim, out_dim,
 class CTM(nn.Module):
     """
     CTM module.
+    This module receives the data in its embedded space, found by means of a backbone like ResNet-18,
+    and finds a mask p that improves the embedded features in (further) reduced dimensions.
+
+    The Concentrator finds commonalities in data points from one class, while the Projector finds
+    distinguishing features among different classes. From this results the mask p.
+    The Reshaper makes sure, we can apply p to the feature embeddings to create 'improved feature embeddings'.
+
+    These 'improved features' then are supplied to a metric or metric learner.
 
     Attributes
     ----------
@@ -143,7 +151,7 @@ class CTM(nn.Module):
         self._test_consistency()
 
     def _test_consistency(self):
-        """Quick check for consistency."""
+        """Quick check for consistency of Projector and Reshaper output."""
         with torch.no_grad():
             z = torch.zeros(1, 3, 224, 224) # arbitrarily shaped zero tensor
             p = self.projector(self.concentrator(z)) # projector output
@@ -183,7 +191,7 @@ class CTM(nn.Module):
         self.n = dataset_config['n_way']
         self.k = dataset_config['k_shot']
 
-    def forward(self):
+    def forward(self, support_set, query_set):
         #TODO
         pass
 
@@ -267,7 +275,7 @@ class Reshaper(nn.Module):
             If auto_params is False, contains the parameters necessary for initializing the Conv layer. Default is None.
         """
         super().__init__()
-        # the reshaper needs not to be configured and can stay a simple Conv layer
+        # the reshaper needs not to be configured and can stay a simple Conv layer (see paper)
         # to keep consistency, 'layers' stays as var name
 
         # if auto_params is True, search for parameters in param space, else assume params to be given
