@@ -156,9 +156,9 @@ class CTM(nn.Module):
         Set Reshaper by passing a zero tensor through Concentrator and Projector to get the correct shape.
         Also saves output channels as attribute.
         """
-
-        zeros = torch.zeros(1, self.input_channels, *self.input_dim)
-        zero_output = self.projector(self.concentrator(zeros))
+        with torch.no_grad():
+            zeros = torch.zeros(1, self.input_channels, *self.input_dim)
+            zero_output = self.projector(self.concentrator(zeros))
         self.output_channels = zero_output.shape[1]
         self.output_dim = zero_output.shape[2:]
         self.reshaper = Reshaper(in_channels=self.input_channels,
