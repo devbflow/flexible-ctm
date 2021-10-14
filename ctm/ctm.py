@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-
+from torch.nn import functional as F
 
 def make_layers(structure, ret_type='seq'):
     """
@@ -91,8 +91,9 @@ class CTM(nn.Module):
     This module receives the data in its embedded space, found by means of a backbone like ResNet-18,
     and finds a mask p that improves the embedded features in (further) reduced dimensions.
 
-    The Concentrator finds commonalities in data points from one class, while the Projector finds
-    distinguishing features among different classes. From this results the mask p.
+    The Concentrator finds commonalities (or average features) in data points from one class, while the Projector finds
+    distinguishing features among different classes.
+    From this results the mask p, that emphasizes relevant features.
     The Reshaper makes sure, we can apply p to the feature embeddings to create 'improved feature embeddings'.
 
     These 'improved features' then are supplied to a metric or metric learner.
@@ -192,7 +193,7 @@ class CTM(nn.Module):
         self.k = dataset_config['k_shot']
 
     def forward(self, support_set, query_set):
-        #TODO
+        
         pass
 
 
@@ -239,11 +240,11 @@ class Projector(nn.Module):
             Y = X
             for l in self.layers:
                 Y = l(Y)
-            return Y
         elif type(self.layers) == nn.Sequential:
-            return self.layers(X)
+            Y = self.layers(X)
         else:
             raise TypeError("Concentrator layers are neither ModuleList nor Sequential!")
+        return F.softmax(Y, dim=1)
 
 class Reshaper(nn.Module):
     """Reshaper module.
