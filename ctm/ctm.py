@@ -144,10 +144,11 @@ class CTM(nn.Module):
 
     def _test_consistency(self):
         """Quick check for consistency."""
-        z = torch.zeros(1, 3, 224, 224)
-        p = self.projector(self.concentrator(z)) # projector output
-        r = self.reshaper(z)
-        assert p.shape == r.shape
+        with torch.no_grad():
+            z = torch.zeros(1, 3, 224, 224) # arbitrarily shaped zero tensor
+            p = self.projector(self.concentrator(z)) # projector output
+            r = self.reshaper(z)
+            assert p.shape == r.shape
 
 
     def _init_reshaper(self):
