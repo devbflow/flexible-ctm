@@ -132,7 +132,7 @@ class CTM(nn.Module):
 
     """
 
-    def __init__(self, config, dataset_config):
+    def __init__(self, config, dataset_config, backbone_out_dim=None):
         """
         Parameters
         ----------
@@ -143,6 +143,10 @@ class CTM(nn.Module):
         """
         super().__init__()
         self.cfg = config
+        if backbone_out_dim is None:
+            self.input_channels = dataset_config['channels']
+        else:
+            self.input_channels = backbone_out_dim
         self._init_dataset(dataset_config)
 
         self.concentrator = Concentrator(self.cfg['concentrator'], self.n, self.k)
@@ -181,7 +185,7 @@ class CTM(nn.Module):
         """Setup dataset-related attributes."""
 
         self.dataset = dataset_config['name']
-        self.input_channels = dataset_config['channels']
+        #self.input_channels = dataset_config['channels']
         shape = dataset_config['shape']
         if type(shape) == int and dataset_config['datatype'] == 'img':
             self.input_dim = (shape, shape)
