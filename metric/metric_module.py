@@ -4,7 +4,7 @@ from torch import nn as nn
 class MetricModule(nn.Module):
     """Wrapper module class for a metric learner.
     Can be a simple metric or a neural network, as long as it works like
-    a function.
+    a nn.Module.
 
     If your metric is more complicated, adapt the code accordingly.
     """
@@ -19,6 +19,6 @@ class MetricModule(nn.Module):
 
 class CosineModule(MetricModule):
     """CosineSimilarity metric."""
-    def __init__(self, dim):
+    def __init__(self, dim=1):
         super().__init__(nn.CosineSimilarity(dim=dim))
 
