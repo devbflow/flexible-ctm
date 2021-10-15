@@ -48,13 +48,16 @@ model:
                 batchnorm: True
 
     metric:
+        # depending on the chosen metric, this block can be flexible and contain
+        # more or less info, adjust it accordingly
         name: "cosine"
+        dim: 1
 
 ### MODE CONFIG ###
 mode: "train" # from ["train", "test", "val"]
 
 ### HARDWARE CONFIG ###
-hardware: "gpu" # from ["cpu", "gpu"]
+device: "gpu" # from ["cpu", "gpu"]
 
 ### TRAIN CONFIG ###
 train:
