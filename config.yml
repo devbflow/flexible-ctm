@@ -40,13 +40,6 @@ model:
                 activation: "relu"
                 batchnorm: True
 
-        reshaper:
-            structure:
-                type: "conv2d3"
-                num: 1
-                activation: "relu"
-                batchnorm: True
-
     metric:
         # depending on the chosen metric, this block can be flexible and contain
         # more or less info, adjust it accordingly
