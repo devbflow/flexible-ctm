@@ -22,3 +22,6 @@ class CosineModule(MetricModule):
     def __init__(self, dim=1):
         super().__init__(nn.CosineSimilarity(dim=dim))
 
+
+# contains all implemented 
+METRICS = {'cosine': CosineModule}
