@@ -12,12 +12,13 @@ from pathlib import Path
 
 from ctm.ctm import CTM
 from preprocessing.prepr_model import preprocess_backbone
-
+from metric.metric_module import CosineModule, METRICS
 
 ### CONSTANTS ###
 # config filename, facilitates usage with different configs
 CONFIG_FILENAME = 'config.yml'
 
+## PATH CONSTANTS ##
 MODELS_PATH = Path('./models/')
 DATA_PATH = Path('./data/')
 
@@ -56,29 +57,45 @@ if model_cfg['parts']['backbone']:
     model_file = 'backbone_{}.pth'.format(backbone_cfg['name'])
     try:
         # load model
-        torch.load(MODELS_PATH / model_file)
-        #TODO
+        backbone = torch.load(MODELS_PATH / model_file)
     except FileNotFoundError:
         raise FileNotFoundError("model '{}' does not exist!".format(MODELS_PATH / model_file))
-    #TODO: init backbone
-    backbone_out_dim = 14 #PLACEHOLDER
+
+    backbone_out_dim = 14 #PLACEHOLDER specific to used backbone
+    backbone = preprocess_backbone(backbone, description=backbone_cfg['name'], dims=backbone_out_dim)
 
 ## CTM ##
 if model_cfg['parts']['ctm']:
     ctm_cfg = model_cfg['ctm']
     ctm = CTM(ctm_cfg, dataset_cfg, backbone_out_dim)
-    #TODO: init ctm
 
 ## METRIC ##
 if model_cfg['parts']['metric']:
     metric_cfg = model_cfg['metric']
-    #TODO: init metric
+    # utilize the METRICS dict to get the right metric module
+    metric_mod = METRICS[metric_cfg['name']]
+    metric = metric_mod(metric_cfg['dim']) # supply the arguments
+    #TODO: change the above line
 
+# final model is a Sequential of all prior
+model = nn.Sequential(backbone,
+                      ctm,
+                      metric)
 
 ### TRAIN/TEST/VAL MODE CONFIG ###
 MODE = cfg['mode'] # train, test, val modes
 if MODE == 'train':
     train_cfg = cfg['train']
-
+    batch_size = train_cfg['batch_size']
+    epochs = train_cfg['epochs']
+    optimizer = train_cfg['optimizer']
+elif MODE == 'test':
+    #TODO: test mode
+    pass
+elif MODE == 'val':
+    #TODO
+    pass
+else:
+    raise ValueError("Did not recognize mode from config")
 
 
