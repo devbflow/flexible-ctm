@@ -41,26 +41,31 @@ model:
                 batchnorm: True
 
     metric:
-        # depending on the chosen metric, this block can be flexible and contain
-        # more or less info, adjust it accordingly
-        name: "cosine"
-        dim: 1
-
-### MODE CONFIG ###
-mode: "train" # from ["train", "test", "val"]
+        # the name key is mandatory and chooses the metric
+        name: "pairwise"
+        # everything below is supplied to the metric module as kwargs
+        p: 2.0
 
 ### HARDWARE CONFIG ###
 device: "gpu" # from ["cpu", "gpu"]
+multigpu: True
 
-### TRAIN CONFIG ###
-train:
+### TRAIN OR TEST ###
+train: True # if True then train, else test
+
+## TRAINING CONFIG ##
+training:
     batch_size: 64
-    epochs: 5
-    optimizer: "adam"
+    epochs: 600
+    optimizer: 
+        name: "adam"
+        lr: 0.001
+        weight_decay: 0.0005
+    loss: "crossentropy"
 
 ### DATASET CONFIG ###
 dataset: 
-    name: "miniimagenet"
+    name: "miniImagenet"
     datatype: "img"
     channels: 3
     shape: [224, 224] # can be int or list of ints
