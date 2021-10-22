@@ -7,12 +7,14 @@ It serves as guideline, how to use the module in your own pipeline, if imported.
 
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
+import torch.optim as optim
 import yaml
 from pathlib import Path
 
 from ctm.ctm import CTM
 from preprocessing.prepr_model import preprocess_backbone
-from metric.metric_module import CosineModule, METRICS
+from metric.metric_module import PairwiseDistModule, METRICS, CosineSimModule
 
 ### CONSTANTS ###
 # config filename, facilitates usage with different configs
@@ -21,6 +23,11 @@ CONFIG_FILENAME = 'config.yml'
 ## PATH CONSTANTS ##
 MODELS_PATH = Path('./models/')
 DATA_PATH = Path('./data/')
+
+## OTHER CONSTANTS ##
+OPTIMS = {'adam': optim.Adam,
+          'sgd': optim.SGD}
+
 
 # load config
 with open(CONFIG_FILENAME, 'r') as cfile:
@@ -46,7 +53,7 @@ dataset_cfg = cfg['dataset']
 model_cfg = cfg['model']
 backbone_out_dim = None # same as default value
 
-# in case one disables parts, they will be omitted/be Identity modules
+# in case one disables parts, they will be omitted/be Identity modules by default
 backbone = nn.Identity()
 ctm = nn.Identity()
 metric = nn.Identity()
@@ -73,29 +80,33 @@ if model_cfg['parts']['ctm']:
 if model_cfg['parts']['metric']:
     metric_cfg = model_cfg['metric']
     # utilize the METRICS dict to get the right metric module
-    metric_mod = METRICS[metric_cfg['name']]
-    metric = metric_mod(metric_cfg['dim']) # supply the arguments
-    #TODO: change the above line
+    metric_mod = METRICS[metric_cfg.pop('name')]
+    metric = metric_mod(**metric_cfg) # supply the remaining kwargs
 
-# final model is a Sequential of all prior
+# final model is a Sequential of all prior and move to device
 model = nn.Sequential(backbone,
                       ctm,
-                      metric)
+                      metric).to(device)
 
-### TRAIN/TEST/VAL MODE CONFIG ###
-MODE = cfg['mode'] # train, test, val modes
-if MODE == 'train':
-    train_cfg = cfg['train']
+### TRAIN/TEST MODE ###
+train = cfg['train']
+if train:
+    train_cfg = cfg['training']
     batch_size = train_cfg['batch_size']
     epochs = train_cfg['epochs']
-    optimizer = train_cfg['optimizer']
-elif MODE == 'test':
+
+    optimizer_cfg = train_cfg['optimizer']
+    opt = OPTIMS[optimizer_cfg.pop(['name'])]
+    optimizer = opt(model.parameters(), **optimizer_cfg)
+
+    #TODO: load data
+
+    for epoch in range(epochs):
+
+        #TODO: train loop
+        loss = F.cross_entropy()
+        continue
+else: #TEST
     #TODO: test mode
+    # simple pass through
     pass
-elif MODE == 'val':
-    #TODO
-    pass
-else:
-    raise ValueError("Did not recognize mode from config")
-
-
