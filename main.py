@@ -16,97 +16,98 @@ from ctm.ctm import CTM
 from preprocessing.prepr_model import preprocess_backbone
 from metric.metric_module import PairwiseDistModule, METRICS, CosineSimModule
 
-### CONSTANTS ###
-# config filename, facilitates usage with different configs
-CONFIG_FILENAME = 'config.yml'
+if __name__ == "__main__":
+    ### CONSTANTS ###
+    # config filename, facilitates usage with different configs
+    CONFIG_FILENAME = 'config.yml'
 
-## PATH CONSTANTS ##
-MODELS_PATH = Path('./models/')
-DATA_PATH = Path('./data/')
+    ## PATH CONSTANTS ##
+    MODELS_PATH = Path('./models/')
+    DATA_PATH = Path('./data/')
 
-## OTHER CONSTANTS ##
-OPTIMS = {'adam': optim.Adam,
-          'sgd': optim.SGD}
-
-
-# load config
-with open(CONFIG_FILENAME, 'r') as cfile:
-    cfg = yaml.load(cfile)
-
-#TODO: handle logging
-LOG_OPTS = cfg['logging']
-LOG_ON = LOG_OPTS['log_on']
+    ## OTHER CONSTANTS ##
+    OPTIMS = {'adam': optim.Adam,
+              'sgd': optim.SGD}
 
 
-# choose device; choose gpu when training/testing on many images, also in the config
-device = torch.device('cuda' if torch.cuda.is_available()
-        and cfg['device'] == 'gpu' else 'cpu')
+    # load config
+    with open(CONFIG_FILENAME, 'r') as cfile:
+        cfg = yaml.load(cfile)
 
-#if LOG_ON:
-#TODO:LOGGING: log the device state (cpu/gpu)
-
-### DATASET CONFIG ###
-dataset_cfg = cfg['dataset']
+    #TODO: handle logging
+    LOG_OPTS = cfg['logging']
+    LOG_ON = LOG_OPTS['log_on']
 
 
-### MODEL CONFIGS ###
-model_cfg = cfg['model']
-backbone_out_dim = None # same as default value
+    # choose device; choose gpu when training/testing on many images, also in the config
+    device = torch.device('cuda' if torch.cuda.is_available()
+            and cfg['device'] == 'gpu' else 'cpu')
 
-# in case one disables parts, they will be omitted/be Identity modules by default
-backbone = nn.Identity()
-ctm = nn.Identity()
-metric = nn.Identity()
+    #if LOG_ON:
+    #TODO:LOGGING: log the device state (cpu/gpu)
 
-## BACKBONE ##
-if model_cfg['parts']['backbone']:
-    backbone_cfg = model_cfg['backbone']
-    model_file = 'backbone_{}.pth'.format(backbone_cfg['name'])
-    try:
-        # load model
-        backbone = torch.load(MODELS_PATH / model_file)
-    except FileNotFoundError:
-        raise FileNotFoundError("model '{}' does not exist!".format(MODELS_PATH / model_file))
+    ### DATASET CONFIG ###
+    dataset_cfg = cfg['dataset']
 
-    backbone_out_dim = 14 #PLACEHOLDER specific to used backbone
-    backbone = preprocess_backbone(backbone, description=backbone_cfg['name'], dims=backbone_out_dim)
 
-## CTM ##
-if model_cfg['parts']['ctm']:
-    ctm_cfg = model_cfg['ctm']
-    ctm = CTM(ctm_cfg, dataset_cfg, backbone_out_dim)
+    ### MODEL CONFIGS ###
+    model_cfg = cfg['model']
+    backbone_out_dim = None # same as default value
 
-## METRIC ##
-if model_cfg['parts']['metric']:
-    metric_cfg = model_cfg['metric']
-    # utilize the METRICS dict to get the right metric module
-    metric_mod = METRICS[metric_cfg.pop('name')]
-    metric = metric_mod(**metric_cfg) # supply the remaining kwargs
+    # in case one disables parts, they will be omitted/be Identity modules by default
+    backbone = nn.Identity()
+    ctm = nn.Identity()
+    metric = nn.Identity()
 
-# final model is a Sequential of all prior and move to device
-model = nn.Sequential(backbone,
-                      ctm,
-                      metric).to(device)
+    ## BACKBONE ##
+    if model_cfg['parts']['backbone']:
+        backbone_cfg = model_cfg['backbone']
+        model_file = 'backbone_{}.pth'.format(backbone_cfg['name'])
+        try:
+            # load model
+            backbone = torch.load(MODELS_PATH / model_file)
+        except FileNotFoundError:
+            raise FileNotFoundError("model '{}' does not exist!".format(MODELS_PATH / model_file))
 
-### TRAIN/TEST MODE ###
-train = cfg['train']
-if train:
-    train_cfg = cfg['training']
-    batch_size = train_cfg['batch_size']
-    epochs = train_cfg['epochs']
+        backbone_out_dim = 14 #PLACEHOLDER specific to used backbone
+        backbone = preprocess_backbone(backbone, description=backbone_cfg['name'], dims=backbone_out_dim)
 
-    optimizer_cfg = train_cfg['optimizer']
-    opt = OPTIMS[optimizer_cfg.pop(['name'])]
-    optimizer = opt(model.parameters(), **optimizer_cfg)
+    ## CTM ##
+    if model_cfg['parts']['ctm']:
+        ctm_cfg = model_cfg['ctm']
+        ctm = CTM(ctm_cfg, dataset_cfg, backbone_out_dim)
 
-    #TODO: load data
+    ## METRIC ##
+    if model_cfg['parts']['metric']:
+        metric_cfg = model_cfg['metric']
+        # utilize the METRICS dict to get the right metric module
+        metric_mod = METRICS[metric_cfg.pop('name')]
+        metric = metric_mod(**metric_cfg) # supply the remaining kwargs
 
-    for epoch in range(epochs):
+    # final model is a Sequential of all prior and move to device
+    model = nn.Sequential(backbone,
+                          ctm,
+                          metric).to(device)
 
-        #TODO: train loop
-        loss = F.cross_entropy()
-        continue
-else: #TEST
-    #TODO: test mode
-    # simple pass through
-    pass
+    ### TRAIN/TEST MODE ###
+    train = cfg['train']
+    if train:
+        train_cfg = cfg['training']
+        batch_size = train_cfg['batch_size']
+        epochs = train_cfg['epochs']
+
+        optimizer_cfg = train_cfg['optimizer']
+        opt = OPTIMS[optimizer_cfg.pop(['name'])]
+        optimizer = opt(model.parameters(), **optimizer_cfg)
+
+        #TODO: load data
+
+        for epoch in range(epochs):
+
+            #TODO: train loop
+            loss = F.cross_entropy()
+            continue
+    else: #TEST
+        #TODO: test mode
+        # simple pass through
+        pass
