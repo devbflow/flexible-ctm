@@ -15,6 +15,8 @@ from pathlib import Path
 from ctm.ctm import CTM
 from preprocessing.prepr_model import preprocess_backbone
 from metric.metric_module import PairwiseDistModule, METRICS, CosineSimModule
+from datasets.loading import *
+
 
 if __name__ == "__main__":
     ### CONSTANTS ###
@@ -100,12 +102,29 @@ if __name__ == "__main__":
         opt = OPTIMS[optimizer_cfg.pop(['name'])]
         optimizer = opt(model.parameters(), **optimizer_cfg)
 
-        #TODO: load data
+        train_loader = get_dataloader(dataset_name=dataset_cfg['name'],
+                                     n_way=dataset_cfg['n_way'],
+                                     k_shot=dataset_cfg['k_shot'],
+                                     include_query=True,
+                                     split='train')
+        val_loader = get_dataloader(dataset_name=dataset_cfg['name'],
+                                    n_way=dataset_cfg['n_way'],
+                                    k_shot=dataset_cfg['k_shot'],
+                                    include_query=True,
+                                    split='val')
 
         for epoch in range(epochs):
-
             #TODO: train loop
-            loss = F.cross_entropy()
+            for support_set, query_set in train_loader:
+                #TODO
+                pass
+            #loss = F.cross_entropy()
+
+            # TODO: validation loop
+            with torch.no_grad():
+                for support_set, query_set in val_loader:
+                    #TODO
+                    pass
             continue
     else: #TEST
         #TODO: test mode
