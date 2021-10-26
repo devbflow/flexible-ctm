@@ -88,16 +88,31 @@ def load_dataset(dataset_name, split='train'):
     img_dir = os.path.join(dataset_path, 'images')
     return DATASETS[dataset_name](annotations, img_dir)
 
-def get_dataloader(dataset_name, n_way, k_shot, shuffle=True, split='train'):
+def get_dataloader(dataset_name, n_way, k_shot, include_query=True, shuffle=True, split='train'):
     dataset = load_dataset(dataset_name, split)
+    # one batch returned by sampler consists of N*K samples for support and/or query set
     sampler = FewShotBatchSampler(data_source=dataset,
                                   targets=dataset.labels,
                                   n_way=n_way,
                                   k_shot=k_shot,
-                                  shuffle=shuffle)
+                                  shuffle=shuffle,
+                                  include_query=include_query)
 
     dataloader = DataLoader(dataset=dataset,
-                            sampler=sampler)
+                            sampler=sampler,
+                            batch_size=1)
     return dataloader
 if __name__ == "__main__":
-    pass
+    loader = get_dataloader(dataset_name='miniImagenet',
+                            n_way=5,
+                            k_shot=5,
+                            include_query=True,
+                            split='train',
+                            shuffle=False)
+    # loader check
+    for s, q in loader:
+        print("get_loader test...")
+        print("Support:", s)
+        print("Query:", q)
+        print("...exit get_loader test.")
+        break
