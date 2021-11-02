@@ -10,7 +10,6 @@ import torch.nn as nn
 from torch.nn import functional as F
 import torch.optim as optim
 import yaml
-from pathlib import Path
 
 from ctm.ctm import CTM
 from preprocessing.prepr_model import preprocess_backbone
@@ -24,8 +23,8 @@ if __name__ == "__main__":
     CONFIG_FILENAME = 'config.yml'
 
     ## PATH CONSTANTS ##
-    MODELS_PATH = Path('./models/')
-    DATA_PATH = Path('./data/')
+    MODELS_PATH = os.path.abspath('./models/')
+    DATA_PATH = os.path.abspath('./data/')
 
     ## OTHER CONSTANTS ##
     OPTIMS = {'adam': optim.Adam,
@@ -67,9 +66,9 @@ if __name__ == "__main__":
         model_file = 'backbone_{}.pth'.format(backbone_cfg['name'])
         try:
             # load model
-            backbone = torch.load(MODELS_PATH / model_file)
+            backbone = torch.load(os.path.join(MODELS_PATH, model_file))
         except FileNotFoundError:
-            raise FileNotFoundError("model '{}' does not exist!".format(MODELS_PATH / model_file))
+            raise FileNotFoundError("model '{}' does not exist!".format(os.path.join(MODELS_PATH, model_file)))
 
         backbone_out_dim = 14 #PLACEHOLDER specific to used backbone
         backbone = preprocess_backbone(backbone, description=backbone_cfg['name'], dims=backbone_out_dim)
@@ -86,10 +85,6 @@ if __name__ == "__main__":
         metric_mod = METRICS[metric_cfg.pop('name')]
         metric = metric_mod(**metric_cfg) # supply the remaining kwargs
 
-    # final model is a Sequential of all prior and move to device
-    model = nn.Sequential(backbone,
-                          ctm,
-                          metric).to(device)
 
     ### TRAIN/TEST MODE ###
     train = cfg['train']
@@ -100,32 +95,49 @@ if __name__ == "__main__":
 
         optimizer_cfg = train_cfg['optimizer']
         opt = OPTIMS[optimizer_cfg.pop(['name'])]
-        optimizer = opt(model.parameters(), **optimizer_cfg)
+        optimizer = opt(ctm.parameters(), **optimizer_cfg)
 
         train_loader = get_dataloader(dataset_name=dataset_cfg['name'],
                                      n_way=dataset_cfg['n_way'],
                                      k_shot=dataset_cfg['k_shot'],
                                      include_query=True,
                                      split='train')
+
         val_loader = get_dataloader(dataset_name=dataset_cfg['name'],
                                     n_way=dataset_cfg['n_way'],
                                     k_shot=dataset_cfg['k_shot'],
                                     include_query=True,
                                     split='val')
 
+        ## TRAIN LOOP ##
         for epoch in range(epochs):
-            #TODO: train loop
-            for support_set, query_set in train_loader:
-                #TODO
-                pass
-            #loss = F.cross_entropy()
+
+            for batch, labels in train_loader:
+                optimizer.zero_grad()
+                support_set, query_set, support_labels, query_labels = split_support_query(batch, labels)
+                support_set = support_set.to(device)
+                query_set = query_set.to(device)
+                support_labels = support_labels.to(device)
+                query_labels = query_labels.to(device)
+
+                # pass through backbone to get feature representation
+                supp_features = backbone(support_set)
+                query_features = backbone(query_set)
+                # pass through CTM to get improved features
+                improved_supp, improved_query = ctm(supp_features, query_features)
+                # supply improved features to metric
+                metric_score = metric(improved_supp, improved_query, dataset_cfg['n_way'])
+
+                loss = F.cross_entropy(metric_score, query_labels)
+                loss.backward()
+                optimizer.step()
 
             # TODO: validation loop
             with torch.no_grad():
                 for support_set, query_set in val_loader:
                     #TODO
                     pass
-            continue
+            break
     else: #TEST
         #TODO: test mode
         # simple pass through
