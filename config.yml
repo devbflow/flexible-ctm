@@ -55,10 +55,10 @@ train: True # if True then train, else test
 
 ## TRAINING CONFIG ##
 training:
-    batch_size: 64
     epochs: 600
-    optimizer: 
+    optimizer:
         name: "adam"
+        # optimizer kwargs below directly supplied to optimizer
         lr: 0.001
         weight_decay: 0.0005
     loss: "crossentropy"
@@ -66,10 +66,10 @@ training:
 ### DATASET CONFIG ###
 dataset: 
     name: "miniImagenet"
-    datatype: "img"
+    #datatype: "img"
     channels: 3
     shape: [224, 224] # can be int or list of ints
-    n_way: 10
+    n_way: 2
     k_shot: 5
 
 ### LOGGING CONFIG ###
