@@ -12,8 +12,8 @@ class MetricModule(nn.Module):
         super().__init__()
         self.metric = metric
 
-    def forward(self, x):
-        return self.metric(x)
+    def forward(self, *args, **kwargs):
+        return self.metric(*args, **kwargs)
 
 
 class CosineSimModule(MetricModule):
@@ -26,6 +26,22 @@ class PairwiseDistModule(MetricModule):
     def __init__(self, p=2.0):
         super().__init__(nn.PairwiseDistance(p))
 
+    def forward(self, support, query, n_way, k_shot):
+        support = support.view(support.shape[0], -1)
+        query = query.view(query.shape[0], -1)
+        score = self.metric(support, query)
+        return score.view(query.shape[0], n_way, k_shot)
+
 # contains all implemented 
 METRICS = {'cosine': CosineSimModule,
            'pairwise': PairwiseDistModule}
+
+
+if __name__ == "__main__":
+    print("Test PairwiseDistModule...")
+    n = 2
+    k = 5
+    support = torch.rand((n*k, 2, 3, 4))
+    query = torch.rand((n*k, 2, 3, 4))
+    pdist = PairwiseDistModule()
+    score = pdist(support, query, n, k)
