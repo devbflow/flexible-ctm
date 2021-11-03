@@ -2,7 +2,9 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-def make_layers(structure, ret_type='seq'):
+ACTIVATIONS = {'relu': nn.ReLU}
+
+def make_layers(structure, input_channels, ret_type='seq'):
     """
     Receives a structural configuration and builds layers with respect to the
     configuration given.
@@ -12,6 +14,8 @@ def make_layers(structure, ret_type='seq'):
     ----------
     structure : dict
         structural configuration as parsed from config.yml
+    input_channels : int
+        number of input channels for the first layer
     ret_type : str, optional
         return type, can be 'list' or 'seq' for ModuleList/Sequential respectively
 
@@ -25,22 +29,33 @@ def make_layers(structure, ret_type='seq'):
     ValueError
         if ret_type is an illegal value
     """
-    #TODO: create proper version
     if ret_type == 'list':
         layers = nn.ModuleList()
         #TODO: add ModuleList capacities
     elif ret_type == 'seq':
-        layers = nn.Sequential(nn.Conv2d(3, 64, 3))
-        #TODO: make a proper version
+        layers = []
+        lact = ACTIVATIONS[structure['activation']](inplace=True)
+        ltype = structure['type'] # layer type
+        out_channels = 64 # base number, is being doubled every layer
+
+        # in this loop, the layers are instantiated, followed by (if desired) batchnorm and activation
+        for i in range(structure['num']):
+            if ltype.startswith('conv2d'):
+                l = nn.Conv2d(in_channels=input_channels, out_channels=out_channels*(i+1), kernel_size=int(ltype[-1]))
+                layers.append(l)
+            if structure['batchnorm']:
+                layers.append(nn.BatchNorm2d(out_channels*(i+1)))
+            layers.append(lact)
+        layers = nn.Sequential(*layers)
     else:
         raise ValueError("make_layers received improper ret_type argument!")
     return layers
 
 def get_conv_params(in_dim, out_dim,
-                    stride=[1,2],
-                    kernel_size=[3,5,7],
-                    padding=[0],
-                    dilation=[1]):
+                    stride=[1,2,3,4,5],
+                    kernel_size=[3,5,7,9],
+                    padding=[0,1,2],
+                    dilation=[1,2]):
     """
     Function to search for fitting parameters to automatically set reshaper conv parameters.
     Returns a dictionary with fitting key and value pairs.
@@ -66,7 +81,7 @@ def get_conv_params(in_dim, out_dim,
     -------
     dictionary with found parameter combinations with 'stride', 'kernel_size', 'padding' and 'dilation' as keys
     """
-
+    # make single int inputs to lists to prevent errors
     if type(stride) == int:
         stride = [stride]
     if type(kernel_size) == int:
@@ -75,11 +90,22 @@ def get_conv_params(in_dim, out_dim,
         padding = [padding]
     if type(dilation) == int:
         dilation = [dilation]
+    # make sure input/output dims are symmetrical (square images)
+    if type(in_dim) == tuple:
+        if in_dim[0] != in_dim[1]:
+            raise ValueError("get_conv_params: in_dim H and W are not equal ({},{})".format(*in_dim))
+        in_dim = in_dim[0]
+    if type(out_dim) == tuple:
+        if out_dim[0] != out_dim[1]:
+            raise ValueError("get_conv_params: out_dim H and W are not equal ({},{})".format(*out_dim))
+        out_dim = out_dim[0]
 
     for d in dilation:
         for p in padding:
             for s in stride:
                 for k in kernel_size:
+                    #print(d, p, s, k)
+                    #print(in_dim)
                     res = int((in_dim + 2*p - d*(k-1) - 1)/s + 1)
                     if res == out_dim:
                         return {'kernel_size': k, 'stride': s, 'padding': p, 'dilation': d}
@@ -132,7 +158,7 @@ class CTM(nn.Module):
 
     """
 
-    def __init__(self, config, dataset_config, backbone_out_dim=None):
+    def __init__(self, config, dataset_config, backbone_outchannels=0, backbone_outdim=0):
         """
         Parameters
         ----------
@@ -143,58 +169,57 @@ class CTM(nn.Module):
         """
         super().__init__()
         self.cfg = config
-        if backbone_out_dim is None:
-            self.input_channels = dataset_config['channels']
+        if backbone_outchannels:
+            self.input_channels = backbone_outchannels
         else:
-            self.input_channels = backbone_out_dim
-        self._init_dataset(dataset_config)
+            self.input_channels = dataset_config['channels']
+        if backbone_outdim:
+            self.input_dim = backbone_outdim
+        else:
+            self.input_dim = dataset_config['shape']
 
-        self.concentrator = Concentrator(self.cfg['concentrator'], self.n, self.k)
-        self.projector = Projector(self.cfg['projector'], self.n)
+        self.dataset = dataset_config['name']
+        self.n = dataset_config['n_way']
+        self.k = dataset_config['k_shot']
+        #self.concentrator = Concentrator(self.cfg['concentrator'], self.n, self.k)
+        #self.projector = Projector(self.cfg['projector'], self.n)
+        self._init_modules(self.cfg['concentrator'], self.cfg['projector'])
 
-        self._init_reshaper()
-        self._test_consistency()
 
     def _test_consistency(self):
         """Quick check for consistency of Projector and Reshaper output."""
         with torch.no_grad():
-            z = torch.zeros(1, 3, 224, 224) # arbitrarily shaped zero tensor
+            z = torch.zeros(1, self.input_channels, 14, 14) # arbitrarily shaped zero tensor
             p = self.projector(self.concentrator(z)) # projector output
             r = self.reshaper(z)
             assert p.shape == r.shape
 
 
-    def _init_reshaper(self):
+    def _init_modules(self, concentrator_cfg, projector_cfg):
         """
-        Set Reshaper by passing a zero tensor through Concentrator and Projector to get the correct shape.
-        Also saves output channels as attribute.
+        Set Concentrator/Projector/Reshaper (C/P/R) by passing a zero tensor to get the correct shapes.
+        Also saves output channels adn dimensions as attribute.
         """
         with torch.no_grad():
-            zeros = torch.zeros(1, self.input_channels, *self.input_dim)
-            zero_output = self.projector(self.concentrator(zeros))
+            # pass through C and P to get dimensions for R
+            if type(self.input_dim) == int:
+                zeros = torch.zeros(self.n*self.k, self.input_channels, self.input_dim, self.input_dim)
+            else:
+                zeros = torch.zeros(self.n*self.k, self.input_channels, *self.input_dim)
+            #print(zeros.shape)
+            self.concentrator = Concentrator(concentrator_cfg, self.input_channels, self.n, self.k)
+            z = self.concentrator(zeros)
+            #print(z.shape)
+            self.projector = Projector(projector_cfg, z.shape[1], self.n)
+            zero_output = self.projector(z)
         self.output_channels = zero_output.shape[1]
-        self.output_dim = zero_output.shape[2:]
+        self.output_dim = tuple(zero_output.shape[2:])
         self.reshaper = Reshaper(in_channels=self.input_channels,
                                  out_channels=self.output_channels,
                                  in_dims=self.input_dim,
                                  out_dims=self.output_dim,
                                  auto_params=True,
                                  params=None)
-
-    def _init_dataset(self, dataset_config):
-        """Setup dataset-related attributes."""
-
-        self.dataset = dataset_config['name']
-        #self.input_channels = dataset_config['channels']
-        shape = dataset_config['shape']
-        if type(shape) == int and dataset_config['datatype'] == 'img':
-            self.input_dim = (shape, shape)
-        elif type(shape) == list:
-            self.input_dim = tuple(shape)
-        else:
-            raise TypeError("Dataset shape type mismatch in config file. (list or int required)")
-        self.n = dataset_config['n_way']
-        self.k = dataset_config['k_shot']
 
     def forward(self, support_set, query_set):
         # reshape support and query sets into further embedded form
@@ -226,12 +251,12 @@ class Concentrator(nn.Module):
 
     """
 
-    def __init__(self, config, n_way: int, k_shot: int):
+    def __init__(self, config, input_channels, n_way: int, k_shot: int):
         super().__init__()
         self.n = n_way
         self.k = k_shot
         self.cfg = config
-        self.layers = make_layers(self.cfg['structure']) # is ModuleList or Sequential
+        self.layers = make_layers(self.cfg['structure'], input_channels) # is ModuleList or Sequential
 
     def forward(self, X):
         # pass through layers first to reduce dimensions
@@ -245,22 +270,22 @@ class Concentrator(nn.Module):
             raise TypeError("Concentrator layers are neither ModuleList nor Sequential!")
         # average over samples in each class (reshape to (N, K*c, d, d))
         Y = Y.view(self.n, self.k, Y.shape[1], Y.shape[2], Y.shape[3])
-        return torch.mean(Y, dim=1)
+        Y = torch.mean(Y, dim=1)
+        # reshape to (1, N*c, d, d) when returning for the projector
+        return Y.view(1, self.n*Y.shape[1], Y.shape[2], Y.shape[3])
 
 class Projector(nn.Module):
     """Simple Projector"""
 
-    def __init__(self, config, n_way: int):
+    def __init__(self, config, input_channels, n_way: int):
         super().__init__()
         self.n = n_way
         self.cfg = config
 
-        self.layers = make_layers(self.cfg['structure'])
+        self.layers = make_layers(self.cfg['structure'], input_channels)
 
     def forward(self, X):
-        # reshape to (1, N*c, d, d)
-        X = X.view(1, self.n*X.shape[1], X.shape[2], X.shape[3])
-
+        # reshape of input happens in the concentrator above
         if type(self.layers) == nn.ModuleList:
             Y = X
             for l in self.layers:
@@ -307,9 +332,9 @@ class Reshaper(nn.Module):
         # if auto_params is True, search for parameters in param space, else assume params to be given
         if auto_params:
             params = get_conv_params(in_dims, out_dims)
-            if params is None:
+            if not params:
                 raise TypeError("get_conv_params returned None!")
-        if params is None and not auto_params:
+        if not params and not auto_params:
             raise ValueError("Did not receive parameter dict while auto_params is False.")
         self.layers = nn.Conv2d(in_channels=in_channels,
                                 out_channels=out_channels,
