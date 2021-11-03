@@ -125,16 +125,16 @@ def split_support_query(batch, labels):
     query_labels = labels[len(labels)//2:]
     return support_set, query_set, support_labels, query_labels
 
-def load_dataset(dataset_name, split='train'):
+def load_dataset(dataset_path, split='train'):
     """Returns a Dataset object for the specified dataset"""
-    dataset_path = os.path.abspath(dataset_name)
+    dataset_name = os.path.basename(dataset_path)
     annotations = os.path.join(dataset_path, split+'.csv')
     img_dir = os.path.join(dataset_path, 'images')
     return DATASETS[dataset_name](annotations, img_dir)
 
-def get_dataloader(dataset_name, n_way, k_shot, include_query=True, shuffle=True, split='train'):
+def get_dataloader(dataset_path, n_way, k_shot, include_query=True, shuffle=True, split='train'):
     """Returs a DataLoader for the specified dataset according to passed args."""
-    dataset = load_dataset(dataset_name, split)
+    dataset = load_dataset(dataset_path, split)
     # one batch returned by sampler consists of N*K samples for support and/or query set
     batch_sampler = FewShotBatchSampler(targets=dataset.labels,
                                         n_way=n_way,
@@ -148,7 +148,7 @@ def get_dataloader(dataset_name, n_way, k_shot, include_query=True, shuffle=True
     return dataloader
 
 if __name__ == "__main__":
-    loader = get_dataloader(dataset_name='miniImagenet',
+    loader = get_dataloader(dataset_path='miniImagenet',
                             n_way=2,
                             k_shot=5,
                             include_query=True,
