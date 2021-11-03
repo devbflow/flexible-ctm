@@ -14,6 +14,7 @@ class MiniImagenetDataset(Dataset):
     def __init__(self, annotations_file, img_dir, transform=None, target_transform=None):
         super().__init__()
         self.labels = pd.read_csv(annotations_file)
+        self.one_hot = pd.get_dummies(self.labels['label'])
         self.img_dir = img_dir
         if transform:
             self.transform = transform
@@ -117,6 +118,13 @@ class FewShotBatchSampler(Sampler):
 
 DATASETS = {'miniImagenet': MiniImagenetDataset}
 
+def split_support_query(batch, labels):
+    """Split up the combined batch of support and query set and their labels."""
+    support_set, query_set = batch.chunk(2, dim=0)
+    support_labels = labels[:len(labels)//2]
+    query_labels = labels[len(labels)//2:]
+    return support_set, query_set, support_labels, query_labels
+
 def load_dataset(dataset_name, split='train'):
     """Returns a Dataset object for the specified dataset"""
     dataset_path = os.path.abspath(dataset_name)
@@ -128,12 +136,11 @@ def get_dataloader(dataset_name, n_way, k_shot, include_query=True, shuffle=True
     """Returs a DataLoader for the specified dataset according to passed args."""
     dataset = load_dataset(dataset_name, split)
     # one batch returned by sampler consists of N*K samples for support and/or query set
-    batch_sampler = FewShotBatchSampler(#data_source=dataset,
-                                  targets=dataset.labels,
-                                  n_way=n_way,
-                                  k_shot=k_shot,
-                                  shuffle=shuffle,
-                                  include_query=include_query)
+    batch_sampler = FewShotBatchSampler(targets=dataset.labels,
+                                        n_way=n_way,
+                                        k_shot=k_shot,
+                                        shuffle=shuffle,
+                                        include_query=include_query)
 
     dataloader = DataLoader(dataset=dataset,
                             batch_sampler=batch_sampler,
@@ -155,6 +162,13 @@ if __name__ == "__main__":
             break
         print("Batch:", batch.shape)
         print("Label:", labels)
+        if loader.batch_sampler.include_query:
+            support_set, query_set, support_labels, query_labels = split_support_query(batch, labels)
+            print(support_set.shape)
+            print(support_labels)
+            print(query_set.shape)
+            print(query_labels)
         c += 1
+
     print("...exit get_loader test.")
 
