@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     ## PATH CONSTANTS ##
     MODELS_PATH = os.path.abspath('./models/')
-    DATA_PATH = os.path.abspath('./data/')
+    DATA_PATH = os.path.abspath('./datasets/')
 
     ## OTHER CONSTANTS ##
     OPTIMS = {'adam': optim.Adam,
@@ -49,11 +49,12 @@ if __name__ == "__main__":
 
     ### DATASET CONFIG ###
     dataset_cfg = cfg['dataset']
-
+    dataset_path = os.path.join(DATA_PATH, dataset_cfg['name']) # 
 
     ### MODEL CONFIGS ###
     model_cfg = cfg['model']
-    backbone_out_dim = None # same as default value
+    backbone_outchannels = 0 # same as default value
+    backbone_outdim = 0
 
     # in case one disables parts, they will be omitted/be Identity modules by default
     backbone = nn.Identity()
@@ -70,13 +71,13 @@ if __name__ == "__main__":
         except FileNotFoundError:
             raise FileNotFoundError("model '{}' does not exist!".format(os.path.join(MODELS_PATH, model_file)))
 
-        backbone_out_dim = 14 #PLACEHOLDER specific to used backbone
-        backbone = preprocess_backbone(backbone, description=backbone_cfg['name'], dims=backbone_out_dim)
-
+        backbone_outdim = 14 #PLACEHOLDER specific to used backbone
+        backbone, backbone_outshape = preprocess_backbone(backbone, description=backbone_cfg['name'], dims=backbone_outdim)
+        backbone_outchannels = backbone_outshape[1]
     ## CTM ##
     if model_cfg['parts']['ctm']:
         ctm_cfg = model_cfg['ctm']
-        ctm = CTM(ctm_cfg, dataset_cfg, backbone_out_dim)
+        ctm = CTM(ctm_cfg, dataset_cfg, backbone_outchannels, backbone_outdim)
 
     ## METRIC ##
     if model_cfg['parts']['metric']:
@@ -90,20 +91,19 @@ if __name__ == "__main__":
     train = cfg['train']
     if train:
         train_cfg = cfg['training']
-        batch_size = train_cfg['batch_size']
         epochs = train_cfg['epochs']
 
         optimizer_cfg = train_cfg['optimizer']
-        opt = OPTIMS[optimizer_cfg.pop(['name'])]
+        opt = OPTIMS[optimizer_cfg.pop('name')]
         optimizer = opt(ctm.parameters(), **optimizer_cfg)
 
-        train_loader = get_dataloader(dataset_name=dataset_cfg['name'],
+        train_loader = get_dataloader(dataset_path=dataset_path,
                                      n_way=dataset_cfg['n_way'],
                                      k_shot=dataset_cfg['k_shot'],
                                      include_query=True,
                                      split='train')
 
-        val_loader = get_dataloader(dataset_name=dataset_cfg['name'],
+        val_loader = get_dataloader(dataset_path=dataset_path,
                                     n_way=dataset_cfg['n_way'],
                                     k_shot=dataset_cfg['k_shot'],
                                     include_query=True,
@@ -111,7 +111,8 @@ if __name__ == "__main__":
 
         ## TRAIN LOOP ##
         for epoch in range(epochs):
-
+            print("Enter epoch loop...")
+            break # FIXME
             for batch, labels in train_loader:
                 optimizer.zero_grad()
                 support_set, query_set, support_labels, query_labels = split_support_query(batch, labels)
@@ -121,8 +122,8 @@ if __name__ == "__main__":
                 query_labels = query_labels.to(device)
 
                 # pass through backbone to get feature representation
-                supp_features = backbone(support_set)
-                query_features = backbone(query_set)
+                supp_features = backbone(support_set).view(-1, 256, 14, 14)
+                query_features = backbone(query_set).view(-1, 256, 14, 14)
                 # pass through CTM to get improved features
                 improved_supp, improved_query = ctm(supp_features, query_features)
                 # supply improved features to metric
