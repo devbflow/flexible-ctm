@@ -14,7 +14,7 @@ class MiniImagenetDataset(Dataset):
     def __init__(self, annotations_file, img_dir, transform=None, target_transform=None):
         super().__init__()
         self.labels = pd.read_csv(annotations_file)
-        self.one_hot = pd.get_dummies(self.labels['label'])
+        self.encoding = self._encode_labels()
         self.img_dir = img_dir
         if transform:
             self.transform = transform
@@ -26,7 +26,7 @@ class MiniImagenetDataset(Dataset):
         if target_transform:
             self.target_transform = target_transform
         else:
-            self.target_transform = None #temporary
+            self.target_transform = self._get_encoding
 
     def __len__(self):
         return self.labels.shape[0]
@@ -47,8 +47,7 @@ class MiniImagenetDataset(Dataset):
                 imgs.append(img.unsqueeze(dim=0))
                 labels.append(label)
             imgs_tensor = torch.cat(imgs, dim=0)
-            print("imgs_tensor.shape: ", imgs_tensor.shape)
-            print("len(labels): ", len(labels))
+
             return imgs_tensor, labels
         else:
             # we only have one sample to load
@@ -60,6 +59,19 @@ class MiniImagenetDataset(Dataset):
             if self.target_transform:
                 label = self.target_transform(label)
             return img, label
+
+    def _encode_labels(self):
+        """Returns dictionary with original label mapped to integers."""
+        labels = pd.unique(self.labels['label'])
+        encoding = {}
+        for i in range(labels.shape[0]):
+            encoding[labels[i]] = i
+        #print("Encoding: ", encoding)
+        return encoding
+
+    def _get_encoding(self, label):
+        """Returns encoded version of label."""
+        return self.encoding[label]
 
 
 class FewShotBatchSampler(Sampler):
@@ -78,13 +90,13 @@ class FewShotBatchSampler(Sampler):
         self.classes = pd.unique(targets['label'])
         self.num_classes = len(self.classes)
         self.cls_indices = {}
-        self.cls_batches = {}
+        self.cls_batchnum = {}
         # get indices for each class label and calculate resp. batch number in case of inequalities
         for c in self.classes:
             self.cls_indices[c] = self.labels.index[self.labels['label'] == c].tolist()
-            self.cls_batches[c] = len(self.cls_indices[c]) // self.k
-        self.iterations = sum(self.cls_batches.values()) // self.n
-        self.class_list = [c for c in self.classes for _ in range(self.cls_batches[c])]
+            self.cls_batchnum[c] = len(self.cls_indices[c]) // self.k
+        self.iterations = sum(self.cls_batchnum.values()) // self.n
+        self.class_list = [c for c in self.classes for _ in range(self.cls_batchnum[c])]
 
         if self.shuffle:
             random.shuffle(self.class_list)
@@ -106,7 +118,7 @@ class FewShotBatchSampler(Sampler):
                 idx_batch.extend(self.cls_indices[c][start_idx[c]:start_idx[c] + self.k])
                 start_idx[c] += self.k
 
-            print("start_idx: ", start_idx)
+            #print("start_idx: ", start_idx)
             # yield support and query or only one set if include_query is set accordingly
             if self.include_query:
                 yield idx_batch[::2] + idx_batch[1::2]
@@ -132,7 +144,7 @@ def load_dataset(dataset_path, split='train'):
     img_dir = os.path.join(dataset_path, 'images')
     return DATASETS[dataset_name](annotations, img_dir)
 
-def get_dataloader(dataset_path, n_way, k_shot, include_query=True, shuffle=True, split='train'):
+def get_dataloader(dataset_path, n_way, k_shot, include_query=True, shuffle=True, split='train', **kwargs):
     """Returs a DataLoader for the specified dataset according to passed args."""
     dataset = load_dataset(dataset_path, split)
     # one batch returned by sampler consists of N*K samples for support and/or query set
@@ -144,7 +156,8 @@ def get_dataloader(dataset_path, n_way, k_shot, include_query=True, shuffle=True
 
     dataloader = DataLoader(dataset=dataset,
                             batch_sampler=batch_sampler,
-                            batch_size=1)
+                            batch_size=1,
+                            **kwargs)
     return dataloader
 
 if __name__ == "__main__":
