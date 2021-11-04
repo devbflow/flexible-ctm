@@ -41,10 +41,10 @@ def make_layers(structure, input_channels, ret_type='seq'):
         # in this loop, the layers are instantiated, followed by (if desired) batchnorm and activation
         for i in range(structure['num']):
             if ltype.startswith('conv2d'):
-                l = nn.Conv2d(in_channels=input_channels, out_channels=out_channels*(i+1), kernel_size=int(ltype[-1]))
+                l = nn.Conv2d(in_channels=input_channels, out_channels=out_channels*(2**i), kernel_size=int(ltype[-1]))
                 layers.append(l)
             if structure['batchnorm']:
-                layers.append(nn.BatchNorm2d(out_channels*(i+1)))
+                layers.append(nn.BatchNorm2d(out_channels*(2**i)))
             layers.append(lact)
         layers = nn.Sequential(*layers)
     else:
