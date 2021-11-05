@@ -112,23 +112,23 @@ if __name__ == "__main__":
         ## TRAIN LOOP ##
         for epoch in range(epochs):
             print("Enter epoch loop...")
-            break # FIXME
             for batch, labels in train_loader:
+                #print(batch.shape, labels)
                 optimizer.zero_grad()
-                support_set, query_set, support_labels, query_labels = split_support_query(batch, labels)
-                support_set = support_set.to(device)
-                query_set = query_set.to(device)
-                support_labels = support_labels.to(device)
-                query_labels = query_labels.to(device)
-
+                support_set, query_set, support_labels, query_labels = split_support_query(batch, labels, device=device)
+                #print(support_set.shape, support_labels)
+                #print(query_set.shape, query_labels)
                 # pass through backbone to get feature representation
                 supp_features = backbone(support_set).view(-1, 256, 14, 14)
                 query_features = backbone(query_set).view(-1, 256, 14, 14)
+                #print("after backbone pass")
+                #print(supp_features.shape, query_features.shape)
                 # pass through CTM to get improved features
                 improved_supp, improved_query = ctm(supp_features, query_features)
+                #print(improved_supp.shape, improved_query.shape)
                 # supply improved features to metric
-                metric_score = metric(improved_supp, improved_query, dataset_cfg['n_way'])
-
+                metric_score = metric(improved_supp, improved_query, dataset_cfg['n_way'], dataset_cfg['k_shot'])
+                break # FIXME
                 loss = F.cross_entropy(metric_score, query_labels)
                 loss.backward()
                 optimizer.step()
@@ -137,7 +137,7 @@ if __name__ == "__main__":
             with torch.no_grad():
                 for support_set, query_set in val_loader:
                     #TODO
-                    pass
+                    break
             break
     else: #TEST
         #TODO: test mode
