@@ -47,7 +47,7 @@ class MiniImagenetDataset(Dataset):
                 imgs.append(img.unsqueeze(dim=0))
                 labels.append(label)
             imgs_tensor = torch.cat(imgs, dim=0)
-
+            print(labels)
             return imgs_tensor, labels
         else:
             # we only have one sample to load
@@ -128,13 +128,33 @@ class FewShotBatchSampler(Sampler):
     def __len__(self):
         return self.iterations
 
+
+def encode_all_labels(dataset_path, splits=['train', 'test', 'val']):
+    """Function to encode all labels across all splits."""
+    labels = []
+    for s in splits:
+        split_file = pd.read_csv(os.path.join(dataset_path, s+'.csv'))
+        l = pd.unique(split_file['label'])
+        for i in range(l.shape[0]):
+            labels.append(l[i])
+    encoded = {}
+    for i, label in enumerate(labels):
+        encoded[label] = i
+    return encoded
+
 DATASETS = {'miniImagenet': MiniImagenetDataset}
 
-def split_support_query(batch, labels):
+def split_support_query(batch, labels, device='none'):
     """Split up the combined batch of support and query set and their labels."""
+
     support_set, query_set = batch.chunk(2, dim=0)
     support_labels = labels[:len(labels)//2]
     query_labels = labels[len(labels)//2:]
+    if device != 'none':
+        support_set = support_set.to(device)
+        query_set = query_set.to(device)
+        support_labels = support_labels.to(device)
+        query_labels = query_labels.to(device)
     return support_set, query_set, support_labels, query_labels
 
 def load_dataset(dataset_path, split='train'):
@@ -171,7 +191,7 @@ if __name__ == "__main__":
     print("get_loader test...")
     c = 0
     for (batch, labels) in loader:
-        if c == 10:
+        if c == 1:
             break
         print("Batch:", batch.shape)
         print("Label:", labels)
@@ -182,6 +202,8 @@ if __name__ == "__main__":
             print(query_set.shape)
             print(query_labels)
         c += 1
-
     print("...exit get_loader test.")
 
+    #print("Enter encode_all_labels test...")
+    #print(encode_all_labels(dataset_path='miniImagenet'))
+    #print("...exit test")
