@@ -142,6 +142,23 @@ def encode_all_labels(dataset_path, splits=['train', 'test', 'val']):
         encoded[label] = i
     return encoded
 
+def make_crossentropy_targets(supp_labels, query_labels, k_shot):
+    """
+    Transform query labels into valid cross-entropy targets.
+    Changes labels from
+    ..math::
+        l_i \in \{0, \ldots, numDatasetClasses\}
+        to
+        l_i \in [0, C-1]
+    where :math: C is the number of classes in the batch (i.e. n_way).
+    """
+    targets = torch.stack(
+        [torch.nonzero(
+            torch.eq(supp_labels[::k_shot], q)
+        ) for q in query_labels]
+    )
+    return targets.squeeze()
+
 DATASETS = {'miniImagenet': MiniImagenetDataset}
 
 def split_support_query(batch, labels, device='none'):
