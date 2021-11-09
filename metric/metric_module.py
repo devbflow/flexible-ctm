@@ -8,7 +8,7 @@ class MetricModule(nn.Module):
     If your metric is more complicated, adapt the code accordingly.
     """
 
-    def __init__(self, metric):
+    def __init__(self, metric, trainable):
         super().__init__()
         self.metric = metric
 
@@ -18,13 +18,13 @@ class MetricModule(nn.Module):
 
 class CosineSimModule(MetricModule):
     """CosineSimilarity metric."""
-    def __init__(self, dim=1):
-        super().__init__(nn.CosineSimilarity(dim=dim))
+    def __init__(self, dim=1, trainable=False):
+        super().__init__(nn.CosineSimilarity(dim=dim), trainable=False)
 
 class PairwiseDistModule(MetricModule):
     """Pairwise Distance metric."""
-    def __init__(self, p=2.0):
-        super().__init__(nn.PairwiseDistance(p))
+    def __init__(self, p=2.0, trainable=False):
+        super().__init__(nn.PairwiseDistance(p), trainable=False)
 
     def forward(self, support, query, n_way, k_shot):
         # conflate channels and dims for support and query set
