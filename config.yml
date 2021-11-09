@@ -13,7 +13,7 @@
 ### MODEL CONFIG ###
 model:
     parts:
-        # disabled parts become identity blocks or are omitted
+        # disabled parts become identity blocks
         backbone: True
         ctm: True
         metric: True
@@ -24,8 +24,8 @@ model:
 
     ctm:
         # block type and number can be specified for each component
-        # implemented block types are found in ctm/ctm_model.py
-        # for conv blocks, the number at the end specifies kernel size
+        # implemented block types are found in ctm/ctm.py
+        # for conv blocks, the number at the end specifies kernel size (nxn)
         concentrator:
             structure:
                 type: "conv2d3"
@@ -43,12 +43,13 @@ model:
     metric:
         # the name key is mandatory and chooses the metric
         name: "pairwise"
+        trainable: False
         # everything below is supplied to the metric module as kwargs
         p: 2.0
 
 ### HARDWARE CONFIG ###
 device: "gpu" # from ["cpu", "gpu"]
-multigpu: True
+#multigpu: True
 
 ### TRAIN OR TEST ###
 train: True # if True then train, else test
@@ -73,5 +74,5 @@ dataset:
     k_shot: 5
 
 ### LOGGING CONFIG ###
-logging:
-    log_on: False
+#logging:
+#    log_on: False
