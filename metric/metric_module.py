@@ -36,7 +36,8 @@ class PairwiseDistModule(MetricModule):
         exp_supp = support.unsqueeze(0).expand(qsize, -1, -1).contiguous().view(-1, cdd)
         exp_query = query.unsqueeze(1).expand(-1, n_way*k_shot, -1).contiguous().view(-1, cdd)
         # get metric score and reshape to (query size, n, k) to sum over k samples
-        score = self.metric(exp_supp, exp_query).view(qsize, n_way, k_shot).sum(dim=2) # (query size, n)
+        # take negative of PairwiseDistance so we maximize
+        score = -self.metric(exp_supp, exp_query).view(qsize, n_way, k_shot).sum(dim=2) # (query size, n)
         return score
 
 # contains all implemented 
