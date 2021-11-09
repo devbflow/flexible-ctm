@@ -112,12 +112,6 @@ if __name__ == "__main__":
                                      include_query=True,
                                      split='train')
 
-        val_loader = get_dataloader(dataset_path=dataset_path,
-                                    n_way=dataset_cfg['n_way'],
-                                    k_shot=dataset_cfg['k_shot'],
-                                    include_query=True,
-                                    split='val')
-
         ## TRAIN LOOP ##
         for epoch in range(1, epochs+1):
             epoch_mean_tr_loss = 0 # mean train loss
@@ -154,39 +148,7 @@ if __name__ == "__main__":
             epoch_mean_tr_loss /= epoch # FIXME: replace by above without breaks
             if epoch-1 % 10 == 0:
                 print("Epoch {} Mean Train Loss: {}".format(epoch, epoch_mean_tr_loss))
-
-            # VALIDATION #
-            epoch_mean_acc = 0 # equal to val loss
-            ctm.eval()
-            metric.eval()
-            with torch.no_grad():
-                for batch, labels in val_loader:
-                    #split up batch into support/query sets/labels
-                    support_set, query_set, support_labels, query_labels = split_support_query(batch, labels, device=device)
-
-                    # pass through backbone to get feature representation
-                    supp_features = backbone(support_set).view(-1, 256, 14, 14)
-                    query_features = backbone(query_set).view(-1, 256, 14, 14)
-
-                    # pass through CTM to get improved features
-                    improved_supp, improved_query = ctm(supp_features, query_features)
-
-                    # supply improved features to metric and compare prediction to targets
-                    metric_score = metric(improved_supp, improved_query, dataset_cfg['n_way'], dataset_cfg['k_shot'])
-                    targets = make_crossentropy_targets(support_labels, query_labels, dataset_cfg['k_shot'])
-                    if len(targets.shape) > 1:
-                        # both classes are the same
-                        continue
-                    pred = metric_score.argmax(dim=1)
-                    print(pred, targets)
-                    corr_pred = torch.eq(pred, targets).sum()
-                    print(corr_pred)
-                    epoch_mean_acc += corr_pred.detach() / targets.shape[0]
-                    break
-                #epoch_mean_acc /= len(val_loader)
-                epoch_mean_acc /= epoch #FIXME: as above
-            print("Epoch {} Mean Val Accuracy: {}".format(epoch, epoch_mean_acc))
-            break
+ 
         # save ctm model
         '''
         cur_time = datetime.now().isoformat()
@@ -203,11 +165,36 @@ if __name__ == "__main__":
                                      k_shot=dataset_cfg['k_shot'],
                                      include_query=True,
                                      split='test')
+
+        mean_acc = 0
+        total_corr = 0
+        total_num = 0
         ctm.eval()
         metric.eval()
         with torch.no_grad():
             for batch, labels in test_loader:
-                
+                #split up batch into support/query sets/labels
+                support_set, query_set, support_labels, query_labels = split_support_query(batch, labels, device=device)
+
+                # pass through backbone to get feature representation
+                supp_features = backbone(support_set).view(-1, 256, 14, 14)
+                query_features = backbone(query_set).view(-1, 256, 14, 14)
+
+                # pass through CTM to get improved features
+                improved_supp, improved_query = ctm(supp_features, query_features)
+
+                # supply improved features to metric and compare prediction to targets
+                metric_score = metric(improved_supp, improved_query, dataset_cfg['n_way'], dataset_cfg['k_shot'])
+                targets = make_crossentropy_targets(support_labels, query_labels, dataset_cfg['k_shot'])
+                pred = metric_score.argmax(dim=1)
+                print(pred, targets)
+                corr_pred = torch.eq(pred, targets).sum()
+                print(corr_pred)
+                total_corr += corr_pred.detach()
+                total_num += targets.shape[0]
+                break
+        mean_acc = total_corr / total_num
+        print("Mean Accuracy of Test set: {}".format(mean_acc))
         #TODO: test mode
         # simple pass through
         pass
