@@ -2,7 +2,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-ACTIVATIONS = {'relu': nn.ReLU}
+ACTIVATIONS = {'relu': nn.ReLU,
+               'leaky': nn.LeakyReLU}
 
 def make_layers(structure, input_channels, ret_type='seq'):
     """
@@ -29,26 +30,29 @@ def make_layers(structure, input_channels, ret_type='seq'):
     ValueError
         if ret_type is an illegal value
     """
+
+    lact = ACTIVATIONS[structure['activation']](inplace=True)
+    ltype = structure['type'] # layer type
+    out_channels = 64 # base number, is being doubled every layer
+
     if ret_type == 'list':
         layers = nn.ModuleList()
-        #TODO: add ModuleList capacities
     elif ret_type == 'seq':
         layers = []
-        lact = ACTIVATIONS[structure['activation']](inplace=True)
-        ltype = structure['type'] # layer type
-        out_channels = 64 # base number, is being doubled every layer
-
-        # in this loop, the layers are instantiated, followed by (if desired) batchnorm and activation
-        for i in range(structure['num']):
-            if ltype.startswith('conv2d'):
-                l = nn.Conv2d(in_channels=input_channels, out_channels=out_channels*(2**i), kernel_size=int(ltype[-1]))
-                layers.append(l)
-            if structure['batchnorm']:
-                layers.append(nn.BatchNorm2d(out_channels*(2**i)))
-            layers.append(lact)
-        layers = nn.Sequential(*layers)
     else:
-        raise ValueError("make_layers received improper ret_type argument!")
+        raise ValueError("make_layers received improper ret_type argument ({})".format(ret_type))
+
+    for i in range(structure['num']):
+        # in this loop, the layers are instantiated, followed by (if desired) batchnorm and activation
+        if ltype.startswith('conv2d'):
+            layers.append(nn.Conv2d(in_channels=input_channels, out_channels=out_channels*(2**i), kernel_size=int(ltype[-1])))
+        if structure['batchnorm']:
+            layers.append(nn.BatchNorm2d(out_channels*(2**i)))
+        layers.append(lact)
+        input_channels = out_channels*(2**i)
+
+    if ret_type == 'seq':
+        layers = nn.Sequential(*layers)
     return layers
 
 def get_conv_params(in_dim, out_dim,
@@ -181,19 +185,8 @@ class CTM(nn.Module):
         self.dataset = dataset_config['name']
         self.n = dataset_config['n_way']
         self.k = dataset_config['k_shot']
-        #self.concentrator = Concentrator(self.cfg['concentrator'], self.n, self.k)
-        #self.projector = Projector(self.cfg['projector'], self.n)
+
         self._init_modules(self.cfg['concentrator'], self.cfg['projector'])
-
-
-    def _test_consistency(self):
-        """Quick check for consistency of Projector and Reshaper output."""
-        with torch.no_grad():
-            z = torch.zeros(1, self.input_channels, 14, 14) # arbitrarily shaped zero tensor
-            p = self.projector(self.concentrator(z)) # projector output
-            r = self.reshaper(z)
-            assert p.shape == r.shape
-
 
     def _init_modules(self, concentrator_cfg, projector_cfg):
         """
@@ -202,16 +195,16 @@ class CTM(nn.Module):
         """
         with torch.no_grad():
             # pass through C and P to get dimensions for R
-            if type(self.input_dim) == int:
+            if isinstance(self.input_dim, int):
                 zeros = torch.zeros(self.n*self.k, self.input_channels, self.input_dim, self.input_dim)
             else:
                 zeros = torch.zeros(self.n*self.k, self.input_channels, *self.input_dim)
-            #print(zeros.shape)
+
             self.concentrator = Concentrator(concentrator_cfg, self.input_channels, self.n, self.k)
             z = self.concentrator(zeros)
-            #print(z.shape)
             self.projector = Projector(projector_cfg, z.shape[1], self.n)
             zero_output = self.projector(z)
+
         self.output_channels = zero_output.shape[1]
         self.output_dim = tuple(zero_output.shape[2:])
         self.reshaper = Reshaper(in_channels=self.input_channels,
@@ -260,11 +253,11 @@ class Concentrator(nn.Module):
 
     def forward(self, X):
         # pass through layers first to reduce dimensions
-        if type(self.layers) == nn.ModuleList:
+        if isinstance(self.layers, nn.ModuleList):
             Y = X
             for l in self.layers:
                 Y = l(Y)
-        elif type(self.layers) == nn.Sequential:
+        elif isinstance(self.layers, nn.Sequential):
             Y = self.layers(X)
         else:
             raise TypeError("Concentrator layers are neither ModuleList nor Sequential!")
@@ -286,11 +279,11 @@ class Projector(nn.Module):
 
     def forward(self, X):
         # reshape of input happens in the concentrator above
-        if type(self.layers) == nn.ModuleList:
+        if isinstance(self.layers, nn.ModuleList):
             Y = X
             for l in self.layers:
                 Y = l(Y)
-        elif type(self.layers) == nn.Sequential:
+        elif isinstance(self.layers, nn.Sequential):
             Y = self.layers(X)
         else:
             raise TypeError("Concentrator layers are neither ModuleList nor Sequential!")
