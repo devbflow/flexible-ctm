@@ -43,16 +43,18 @@ model:
     metric:
         # the name key is mandatory and chooses the metric
         name: "pairwise"
-        trainable: False
-        # everything below is supplied to the metric module as kwargs
+        trainable: False # supplied to metric
+        # everything below is supplied to the metric module as custom kwargs
         p: 2.0
 
 ### HARDWARE CONFIG ###
 device: "gpu" # from ["cpu", "gpu"]
 #multigpu: True
 
-### TRAIN OR TEST ###
-train: True # if True then train, else test
+### TRAIN AND/OR TEST ###
+# can be both or only one
+train: True
+test: True
 
 ## TRAINING CONFIG ##
 training:
