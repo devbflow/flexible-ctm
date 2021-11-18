@@ -5,6 +5,7 @@ imported module.
 It serves as guideline, how to use the module in your own pipeline, if imported.
 """
 from datetime import datetime
+import argparse
 
 import torch
 import torch.nn as nn
@@ -19,13 +20,21 @@ from datasets.loading import *
 
 
 if __name__ == "__main__":
+    ### PARSE ARGUMENTS ###
+    parser = argparse.ArgumentParser(description="Main script to run training/testing for the CTM based on config file.")
+    parser.add_argument('--cfg', metavar='CFG_PATH', type=str, default='./config.yml', help="optional path to config file (default: './config.yml')")
+    parser.add_argument('--ctm', metavar='CTM_MODEL', type=str, help="model name for loading a ctm model for testing")
+    parser.add_argument('--metric', metavar='METRIC', type=str, help="metric name for loading a trained metric, should align with the metric in config file")
+    parser.add_argument('--models', metavar='MODELS_PATH', type=str, default='./models/', help="optional path to models directory used for loading/saving all models (default: './models/')")
+    parser.add_argument('--datasets', metavar='DATA_PATH', type=str, default='./datasets/', help="optional path to datasets (default: './datasets/')")
+    args = parser.parse_args()
     ### CONSTANTS ###
     # config filename, facilitates usage with different configs
-    CONFIG_FILENAME = 'config.yml'
+    CONFIG_FILENAME = args.cfg
 
     ## PATH CONSTANTS ##
-    MODELS_PATH = os.path.abspath('./models/')
-    DATA_PATH = os.path.abspath('./datasets/')
+    MODELS_PATH = os.path.abspath(args.models)
+    DATA_PATH = os.path.abspath(args.datasets)
 
     ## OTHER CONSTANTS ##
     OPTIMS = {'adam': optim.Adam,
@@ -47,7 +56,7 @@ if __name__ == "__main__":
     ### DATASET CONFIG ###
     dataset_cfg = cfg['dataset']
     dataset_path = os.path.join(DATA_PATH, dataset_cfg['name']) # 
-    print("Loading dataset {}.".format(dataset_cfg['name']))
+    print("Using dataset {}.".format(dataset_cfg['name']))
 
 
     ### MODEL CONFIGS ###
@@ -70,7 +79,7 @@ if __name__ == "__main__":
             backbone = torch.load(os.path.join(MODELS_PATH, model_file))
             print("Loaded backbone '{}''.".format(model_file))
         except FileNotFoundError:
-            raise FileNotFoundError("model '{}' does not exist!".format(os.path.join(MODELS_PATH, model_file)))
+            raise FileNotFoundError("backbone model '{}' does not exist!".format(os.path.join(MODELS_PATH, model_file)))
 
         backbone_outdim = 14 #PLACEHOLDER specific to used backbone
         backbone, backbone_outshape = preprocess_backbone(backbone, description=backbone_cfg['name'], dims=backbone_outdim)
@@ -78,9 +87,16 @@ if __name__ == "__main__":
 
     ## CTM ##
     if model_cfg['parts']['ctm']:
-        ctm_cfg = model_cfg['ctm']
-        ctm = CTM(ctm_cfg, dataset_cfg, backbone_outchannels, backbone_outdim)
-        print("Initialized new CTM module.")
+        if not args.ctm:
+            # initialize new ctm model
+            ctm_cfg = model_cfg['ctm']
+            ctm = CTM(ctm_cfg, dataset_cfg, backbone_outchannels, backbone_outdim)
+            print("Initialized new CTM module.")
+        else:
+            # load previous model 
+            #TODO: model loading
+            pass
+
     ## METRIC ##
     if model_cfg['parts']['metric']:
         metric_cfg = model_cfg['metric']
@@ -175,8 +191,6 @@ if __name__ == "__main__":
                                      k_shot=dataset_cfg['k_shot'],
                                      include_query=True,
                                      split='test')
-
-        #FIXME: load models
 
         mean_acc = 0
         total_corr = 0
