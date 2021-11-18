@@ -30,7 +30,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     ### CONSTANTS ###
     # config filename, facilitates usage with different configs
-    CONFIG_FILENAME = args.cfg
+    CONFIG_FILE = args.cfg
 
     ## PATH CONSTANTS ##
     MODELS_PATH = os.path.abspath(args.models)
@@ -42,8 +42,8 @@ if __name__ == "__main__":
 
 
     # load config
-    with open(CONFIG_FILENAME, 'r') as cfile:
-        print("Loading config file {}".format(CONFIG_FILENAME))
+    with open(CONFIG_FILE, 'r') as cfile:
+        print("Loading config file {}".format(CONFIG_FILE))
         cfg = yaml.load(cfile, Loader=yaml.FullLoader)
 
 
@@ -116,7 +116,7 @@ if __name__ == "__main__":
         try:
             if metric_cfg['trainable']:
                 optimizer = opt([ctm.parameters(),
-                                 metric.parameters()])
+                                 metric.parameters()], **optimizer_cfg)
             else:
                 optimizer = opt(ctm.parameters(), **optimizer_cfg)
         except NameError:
