@@ -20,6 +20,7 @@ from datasets.loading import *
 
 
 if __name__ == "__main__":
+
     ### PARSE ARGUMENTS ###
     parser = argparse.ArgumentParser(description="Main script to run training/testing for the CTM based on config file.")
     parser.add_argument('--cfg', metavar='CFG_PATH', type=str, default='./config.yml', help="optional path to config file (default: './config.yml')")
@@ -28,8 +29,8 @@ if __name__ == "__main__":
     parser.add_argument('--models', metavar='MODELS_PATH', type=str, default='./models/', help="optional path to models directory used for loading/saving all models (default: './models/')")
     parser.add_argument('--datasets', metavar='DATA_PATH', type=str, default='./datasets/', help="optional path to datasets (default: './datasets/')")
     args = parser.parse_args()
+
     ### CONSTANTS ###
-    # config filename, facilitates usage with different configs
     CONFIG_FILE = args.cfg
 
     ## PATH CONSTANTS ##
@@ -48,7 +49,7 @@ if __name__ == "__main__":
 
 
     # choose device; choose gpu when training/testing on many images, also in the config
-    device = torch.device('cuda' if torch.cuda.is_available()
+    device = torch.device('cuda:0' if torch.cuda.is_available()
             and cfg['device'] == 'gpu' else 'cpu')
     print("Using device '{}'.".format(device))
 
@@ -93,9 +94,9 @@ if __name__ == "__main__":
             ctm = CTM(ctm_cfg, dataset_cfg, backbone_outchannels, backbone_outdim)
             print("Initialized new CTM module.")
         else:
-            # load previous model 
-            #TODO: model loading
-            pass
+            # load previously trained model 
+            ctm = torch.load(os.path.join(MODELS_PATH, args.ctm))
+            print("Loaded CTM module {}".format(args.ctm))
 
     ## METRIC ##
     if model_cfg['parts']['metric']:
