@@ -23,9 +23,9 @@ if __name__ == "__main__":
 
     ### PARSE ARGUMENTS ###
     parser = argparse.ArgumentParser(description="Main script to run training/testing for the CTM based on config file.")
-    parser.add_argument('--cfg', metavar='CFG_PATH', type=str, default='./config.yml', help="optional path to config file (default: './config.yml')")
-    parser.add_argument('--ctm', metavar='CTM_MODEL', type=str, help="model name for loading a ctm model for testing")
+    parser.add_argument('--ctm', metavar='CTM_MODEL', type=str, help="model name for loading a ctm model, necessary for testing")
     parser.add_argument('--metric', metavar='METRIC', type=str, help="metric name for loading a trained metric, should align with the metric in config file")
+    parser.add_argument('--cfg', metavar='CFG_PATH', type=str, default='./config.yml', help="optional path to config file (default: './config.yml')")
     parser.add_argument('--models', metavar='MODELS_PATH', type=str, default='./models/', help="optional path to models directory used for loading/saving all models (default: './models/')")
     parser.add_argument('--datasets', metavar='DATA_PATH', type=str, default='./datasets/', help="optional path to datasets (default: './datasets/')")
     args = parser.parse_args()
@@ -47,6 +47,13 @@ if __name__ == "__main__":
         print("Loading config file {}".format(CONFIG_FILE))
         cfg = yaml.load(cfile, Loader=yaml.FullLoader)
 
+    ### PREEMPTIVE ERROR CHECKING
+    # if test only, raise error as testing untrained models is nonsense
+    if cfg['test'] and not cfg['train']:
+        if not args.ctm:
+            raise RuntimeError("No model being loaded while testing only! Supply '--ctm CTM_MODEL' argument.")
+        if not args.metric and cfg['metric']['trainable']:
+            raise RuntimeError("No trainable metric being loaded while testing only! Supply '--metric METRIC' argument.")
 
     # choose device; choose gpu when training/testing on many images, also in the config
     device = torch.device('cuda:0' if torch.cuda.is_available()
@@ -88,22 +95,25 @@ if __name__ == "__main__":
 
     ## CTM ##
     if model_cfg['parts']['ctm']:
-        if not args.ctm:
-            # initialize new ctm model
+        # load previous model if given in args, initialize new ctm model otherwise
+        if args.ctm:
+            ctm = torch.load(os.path.join(MODELS_PATH, args.ctm))
+            print("Loaded CTM module {}".format(args.ctm))
+        else:
             ctm_cfg = model_cfg['ctm']
             ctm = CTM(ctm_cfg, dataset_cfg, backbone_outchannels, backbone_outdim)
             print("Initialized new CTM module.")
-        else:
-            # load previously trained model 
-            ctm = torch.load(os.path.join(MODELS_PATH, args.ctm))
-            print("Loaded CTM module {}".format(args.ctm))
 
     ## METRIC ##
     if model_cfg['parts']['metric']:
         metric_cfg = model_cfg['metric']
-        # utilize the METRICS dict to get the right metric module
-        metric_mod = METRICS[metric_cfg.pop('name')]
-        metric = metric_mod(**metric_cfg) # supply the remaining kwargs
+        if args.metric and metric_cfg['trainable']:
+            metric = torch.load(os.path.join(MODELS_PATH, args.metric))
+            print("Loaded trainable metric {}.".format(args.metric))
+        else:
+            # utilize the METRICS dict to get the right metric module
+            metric_mod = METRICS[metric_cfg.pop('name')]
+            metric = metric_mod(**metric_cfg) # supply the remaining kwargs
 
 
     ### TRAIN MODE ###
