@@ -15,7 +15,7 @@ import yaml
 
 from ctm.ctm import CTM
 from preprocessing.prepr_model import preprocess_backbone
-from metric.metric_module import PairwiseDistModule, METRICS, CosineSimModule
+from metric.metric_module import PairwiseDistModule, METRICS
 from datasets.loading import *
 
 
@@ -56,7 +56,7 @@ if __name__ == "__main__":
             raise RuntimeError("No trainable metric being loaded while testing only! Supply '--metric METRIC' argument.")
 
     # choose device; choose gpu when training/testing on many images, also in the config
-    device = torch.device('cuda:0' if torch.cuda.is_available()
+    device = torch.device('cuda' if torch.cuda.is_available()
             and cfg['device'] == 'gpu' else 'cpu')
     print("Using device '{}'.".format(device))
 
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         try:
             # load model
             backbone = torch.load(os.path.join(MODELS_PATH, model_file))
-            print("Loaded backbone '{}''.".format(model_file))
+            print("Loaded backbone '{}'.".format(model_file))
         except FileNotFoundError:
             raise FileNotFoundError("backbone model '{}' does not exist!".format(os.path.join(MODELS_PATH, model_file)))
 
@@ -98,7 +98,7 @@ if __name__ == "__main__":
         # load previous model if given in args, initialize new ctm model otherwise
         if args.ctm:
             ctm = torch.load(os.path.join(MODELS_PATH, args.ctm))
-            print("Loaded CTM module {}".format(args.ctm))
+            print("Loaded CTM module '{}'.".format(args.ctm))
         else:
             ctm_cfg = model_cfg['ctm']
             ctm = CTM(ctm_cfg, dataset_cfg, backbone_outchannels, backbone_outdim)
@@ -109,7 +109,7 @@ if __name__ == "__main__":
         metric_cfg = model_cfg['metric']
         if args.metric and metric_cfg['trainable']:
             metric = torch.load(os.path.join(MODELS_PATH, args.metric))
-            print("Loaded trainable metric {}.".format(args.metric))
+            print("Loaded trainable metric '{}'.".format(args.metric))
         else:
             # utilize the METRICS dict to get the right metric module
             metric_mod = METRICS[metric_cfg.pop('name')]
