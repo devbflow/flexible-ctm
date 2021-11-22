@@ -170,20 +170,18 @@ if __name__ == "__main__":
                 #print(loss)
                 loss.backward()
                 optimizer.step()
-                break # FIXME
-            #epoch_mean_tr_loss /= len(train_loader)
-            epoch_mean_tr_loss /= epoch # FIXME: replace by above without breaks
+            epoch_mean_tr_loss /= len(train_loader)
+
             if epoch-1 % 10 == 0:
                 print("Epoch {} Mean Train Loss: {}".format(epoch, epoch_mean_tr_loss))
 
         # save ctm model
         cur_time = datetime.now().isoformat()
-        '''
         ctm_fname = "ctm_n:{}_k:{}_{}".format(dataset_cfg['n_way'], dataset_cfg['k_shot'], cur_time)
         print("Saving CTM model {}".format(ctm_fname))
         torch.save(ctm, os.path.join(MODELS_PATH, ctm_fname))
         print("Model saved under {}".format(os.path.join(MODELS_PATH, ctm_fname)))
-        '''
+
         # save metric if trainable
         try:
             if metric_cfg['trainable']:
@@ -194,6 +192,7 @@ if __name__ == "__main__":
         except NameError:
             # no trainable metric module, no need to save
             pass
+
     ## TEST MODE ##
     if cfg['test']:
 
@@ -225,12 +224,12 @@ if __name__ == "__main__":
                 metric_score = metric(improved_supp, improved_query, dataset_cfg['n_way'], dataset_cfg['k_shot'])
                 targets = make_crossentropy_targets(support_labels, query_labels, dataset_cfg['k_shot'])
                 pred = metric_score.argmax(dim=1)
-                print(pred, targets)
+                #print(pred, targets)
                 corr_pred = torch.eq(pred, targets).sum()
-                print(corr_pred)
+                #print(corr_pred)
                 total_corr += corr_pred
                 total_num += targets.shape[0]
-                break # FIXME
+
         mean_acc = total_corr / total_num
         print("Mean Accuracy of Test set: {}".format(mean_acc))
 
