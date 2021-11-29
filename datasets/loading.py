@@ -47,7 +47,6 @@ class MiniImagenetDataset(Dataset):
                 imgs.append(img.unsqueeze(dim=0))
                 labels.append(label)
             imgs_tensor = torch.cat(imgs, dim=0)
-            print(labels)
             return imgs_tensor, labels
         else:
             # we only have one sample to load
@@ -99,16 +98,11 @@ class FewShotBatchSampler(Sampler):
         self.class_list = [c for c in self.classes for _ in range(self.cls_batchnum[c])]
 
         if self.shuffle:
-            random.shuffle(self.class_list)
-            for c in self.classes:
-                random.shuffle(self.cls_indices[c])
-
+            self._shuffle_data()
 
     def __iter__(self):
         if self.shuffle:
-            random.shuffle(self.class_list)
-            for c in self.classes:
-                random.shuffle(self.cls_indices[c])
+            self._shuffle_data()
 
         start_idx = defaultdict(int)
         for i in range(self.iterations):
@@ -127,6 +121,12 @@ class FewShotBatchSampler(Sampler):
 
     def __len__(self):
         return self.iterations
+
+    def _shuffle_data(self):
+        '''Shuffle data properly to not have repeating classes per N-way K-shot batch.'''
+        self.class_list = [c for _ in range(self.iterations) for c in random.sample(self.class_list, self.n) ]
+        for c in self.classes:
+            random.shuffle(self.cls_indices[c])
 
 
 def encode_all_labels(dataset_path, splits=['train', 'test', 'val']):
