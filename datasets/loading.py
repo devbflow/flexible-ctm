@@ -4,7 +4,7 @@ import random
 
 import torch
 from torch.utils.data import Dataset, DataLoader, Sampler
-from torchvision.io import read_image
+from PIL import Image
 from torchvision import transforms
 import pandas as pd
 import numpy as np
@@ -22,7 +22,9 @@ class MiniImagenetDataset(Dataset):
         else:
             size = 224
             # transform.ToTensor not necessary
-            self.transform = transforms.Compose([transforms.Resize((size,size)),
+            self.transform = transforms.Compose([transforms.Resize((256,256)),
+                                                 transforms.CenterCrop(size),
+                                                 transforms.ToTensor(),
                                                  transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
         if target_transform:
             self.target_transform = target_transform
@@ -39,7 +41,7 @@ class MiniImagenetDataset(Dataset):
             labels = []
             for i in idx:
                 img_path = os.path.join(self.img_dir, self.labels.iat[i, 0])
-                img = read_image(img_path).float()
+                img = Image.open(img_path)
                 label = self.labels.iat[i, 1]
                 if self.transform:
                     img = self.transform(img)
@@ -52,7 +54,7 @@ class MiniImagenetDataset(Dataset):
         else:
             # we only have one sample to load
             img_path = os.path.join(self.img_dir, self.labels.iloc[idx, 0])
-            img = read_image(img_path).float()
+            img = Image.open(img_path)
             label = self.labels.iloc[idx,1]
             if self.transform:
                 img = self.transform(img)
@@ -219,7 +221,7 @@ if __name__ == "__main__":
         print("Label:", labels)
         if loader.batch_sampler.include_query:
             support_set, query_set, support_labels, query_labels = split_support_query(batch, labels)
-            print(support_set.shape)
+            print(support_set[0])
             print(support_labels)
             print(query_set.shape)
             print(query_labels)
