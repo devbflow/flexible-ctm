@@ -7,6 +7,7 @@ from torch.utils.data import Dataset, DataLoader, Sampler
 from torchvision.io import read_image
 from torchvision import transforms
 import pandas as pd
+import numpy as np
 
 
 class MiniImagenetDataset(Dataset):
@@ -84,7 +85,7 @@ class FewShotBatchSampler(Sampler):
         if self.include_query:
             self.k *= 2
         self.shuffle = shuffle
-        self.batch_size = self.n * self.k
+        #self.batch_size = self.n * self.k
 
         self.classes = pd.unique(targets['label'])
         self.num_classes = len(self.classes)
@@ -95,14 +96,23 @@ class FewShotBatchSampler(Sampler):
             self.cls_indices[c] = self.labels.index[self.labels['label'] == c].tolist()
             self.cls_batchnum[c] = len(self.cls_indices[c]) // self.k
         self.iterations = sum(self.cls_batchnum.values()) // self.n
-        self.class_list = [c for c in self.classes for _ in range(self.cls_batchnum[c])]
-
-        if self.shuffle:
-            self._shuffle_data()
+        #self.class_list = [c for c in self.classes for _ in range(self.cls_batchnum[c])]
 
     def __iter__(self):
-        if self.shuffle:
-            self._shuffle_data()
+        # generate tasks with no repeating classes within task
+        for _ in range(self.iterations):
+            idx_batch = []
+            task_cls = np.random.choice(self.classes, self.n, replace=False) # classes per batch
+            for c in task_cls:
+                sample_indcs = random.sample(self.cls_indices[c], self.k) # samples per class
+                idx_batch.extend(sample_indcs)
+
+            if self.include_query:
+                yield idx_batch[::2] + idx_batch[1::2]
+            else:
+                yield idx_batch
+    '''
+    def __iter__(self):
 
         start_idx = defaultdict(int)
         for i in range(self.iterations):
@@ -118,15 +128,9 @@ class FewShotBatchSampler(Sampler):
                 yield idx_batch[::2] + idx_batch[1::2]
             else:
                 yield idx_batch
-
+    '''
     def __len__(self):
         return self.iterations
-
-    def _shuffle_data(self):
-        '''Shuffle data properly to not have repeating classes per N-way K-shot batch.'''
-        self.class_list = [c for _ in range(self.iterations) for c in random.sample(self.class_list, self.n) ]
-        for c in self.classes:
-            random.shuffle(self.cls_indices[c])
 
 
 def encode_all_labels(dataset_path, splits=['train', 'test', 'val']):
@@ -152,6 +156,7 @@ def make_crossentropy_targets(supp_labels, query_labels, k_shot):
         l_i \in [0, C-1]
     where :math: C is the number of classes in the batch (i.e. n_way).
     """
+    #print(supp_labels, query_labels)
     targets = torch.stack(
         [torch.nonzero(
             torch.eq(supp_labels[::k_shot], q)
@@ -202,7 +207,7 @@ if __name__ == "__main__":
                             n_way=2,
                             k_shot=5,
                             include_query=True,
-                            split='train',
+                            split='test',
                             shuffle=True)
     # loader check
     print("get_loader test...")
