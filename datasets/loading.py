@@ -204,6 +204,44 @@ def get_dataloader(dataset_path, n_way, k_shot, include_query=True, shuffle=True
                             **kwargs)
     return dataloader
 
+
+def make_subsplit(dataset, superfname, subsplit=None, frac=0.25, mode='inorder') -> None:
+    """
+    Makes a subsplit of a given csv file.
+
+    Arguments
+    ---------
+    dataset : str
+        name of dataset, same as directory to be searched in
+    superfname : str
+        filename of file to create split from
+    subsplit : str or None
+        filename of subsplit file to be created, if None name is being made from other args. default: None.
+    frac: float or int
+        fraction of classes to remain in subsplit
+    mode : str
+        mode of how to sample classes from file. default: 'inorder'
+    """
+
+    supfname = '{}/{}.csv'.format(dataset, superfname)
+
+    with open(supfname, 'r') as f:
+        superdf = pd.read_csv(f)
+
+    if mode == 'inorder':
+        # get the first length*frac rows
+        subdf = superdf.head(int(len(superdf)*frac))
+    else:
+        raise ValueError("Invalid mode. Got {}.".format(mode))
+
+    # if output filename is supplied, use it, else make it from the args
+    if subsplit:
+        subfname = '{}/{}.csv'.format(dataset, subsplit)
+    else:
+        subfname = '{}/{}_{}p_{}.csv'.format(dataset, superfname, int(frac*100), mode)
+    subdf.to_csv(subfname)
+
+
 if __name__ == "__main__":
     loader = get_dataloader(dataset_path='miniImagenet',
                             n_way=2,
