@@ -28,6 +28,8 @@ if __name__ == "__main__":
     parser.add_argument('--cfg', metavar='CFG_PATH', type=str, default='./config.yml', help="optional path to config file (default: './config.yml')")
     parser.add_argument('--models', metavar='MODELS_PATH', type=str, default='./models/', help="optional path to models directory used for loading/saving all models (default: './models/')")
     parser.add_argument('--datasets', metavar='DATA_PATH', type=str, default='./datasets/', help="optional path to datasets (default: './datasets/')")
+    parser.add_argument('--trainfile', metavar='TRAIN_SPLIT', type=str, default='train', help="optional name of train csv file without file extension (default: 'train')")
+    parser.add_argument('--testfile', metavar='TEST_SPLIT', type=str, default='test', help="optional name of test csv file without file extension (default: 'test')")
     args = parser.parse_args()
 
     ### CONSTANTS ###
@@ -137,8 +139,8 @@ if __name__ == "__main__":
                                      n_way=dataset_cfg['n_way'],
                                      k_shot=dataset_cfg['k_shot'],
                                      include_query=True,
-                                     split='train')
-
+                                     split=args.trainfile)
+        #print(len(train_loader))
         ## TRAIN LOOP ##
         for epoch in range(1, epochs+1):
             epoch_mean_tr_loss = 0 # mean train loss
@@ -147,6 +149,7 @@ if __name__ == "__main__":
             ctm.train()
             metric.train()
             for i, (batch, labels) in enumerate(train_loader):
+
                 #if i % 10 == 0:
                 #    print("Iteration: {}".format(i+1))
                 optimizer.zero_grad()
@@ -166,22 +169,26 @@ if __name__ == "__main__":
                 # calculate cross-entropy loss and backprop 
                 targets = make_crossentropy_targets(support_labels, query_labels, dataset_cfg['k_shot'])
                 loss = F.cross_entropy(metric_score, targets)
+                #print(metric_score.dtype, targets.dtype)
                 epoch_mean_tr_loss += loss.detach()
                 #print(loss)
+                #break # FIXME
                 loss.backward()
                 optimizer.step()
+            #break # FIXME
             epoch_mean_tr_loss /= len(train_loader)
 
             if epoch-1 % 10 == 0:
                 print("Epoch {} Mean Train Loss: {}".format(epoch, epoch_mean_tr_loss))
 
         # save ctm model
+        #'''
         cur_time = datetime.now().isoformat()
         ctm_fname = "ctm_n:{}_k:{}_{}".format(dataset_cfg['n_way'], dataset_cfg['k_shot'], cur_time)
         print("Saving CTM model {}".format(ctm_fname))
         torch.save(ctm, os.path.join(MODELS_PATH, ctm_fname))
         print("Model saved under {}".format(os.path.join(MODELS_PATH, ctm_fname)))
-
+        #'''
         # save metric if trainable
         try:
             if metric_cfg['trainable']:
@@ -200,13 +207,15 @@ if __name__ == "__main__":
                                      n_way=dataset_cfg['n_way'],
                                      k_shot=dataset_cfg['k_shot'],
                                      include_query=True,
-                                     split='test')
+                                     split=args.testfile)
 
+        # prepare variables and models for testing
         mean_acc = 0
         total_corr = 0
         total_num = 0
         ctm.eval()
         metric.eval()
+
         # TEST LOOP #
         with torch.no_grad():
             for batch, labels in test_loader:
@@ -225,10 +234,12 @@ if __name__ == "__main__":
                 targets = make_crossentropy_targets(support_labels, query_labels, dataset_cfg['k_shot'])
                 pred = metric_score.argmax(dim=1)
                 #print(pred, targets)
+                #print(query_labels)
                 corr_pred = torch.eq(pred, targets).sum()
                 #print(corr_pred)
                 total_corr += corr_pred
                 total_num += targets.shape[0]
+                #raise SystemExit(0)
 
         mean_acc = total_corr / total_num
         print("Mean Accuracy of Test set: {}".format(mean_acc))
