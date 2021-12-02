@@ -58,7 +58,7 @@ test: True
 
 ## TRAINING CONFIG ##
 training:
-    epochs: 600
+    epochs: 100
     optimizer:
         name: "adam"
         # optimizer kwargs below directly supplied to optimizer
@@ -72,7 +72,7 @@ dataset:
     #datatype: "img"
     channels: 3
     shape: [224, 224] # can be int or list of ints
-    n_way: 2
+    n_way: 5
     k_shot: 5
 
 ### LOGGING CONFIG ###
