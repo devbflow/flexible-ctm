@@ -142,6 +142,7 @@ if __name__ == "__main__":
                                      split=args.trainfile)
         #print(len(train_loader))
         ## TRAIN LOOP ##
+        print("Entering train loop...")
         for epoch in range(1, epochs+1):
             epoch_mean_tr_loss = 0 # mean train loss
 
@@ -180,7 +181,7 @@ if __name__ == "__main__":
 
             if epoch-1 % 10 == 0:
                 print("Epoch {} Mean Train Loss: {}".format(epoch, epoch_mean_tr_loss))
-
+        print("Finished train loop.")
         # save ctm model
         #'''
         cur_time = datetime.now().isoformat()
@@ -217,6 +218,7 @@ if __name__ == "__main__":
         metric.eval()
 
         # TEST LOOP #
+        print("Starting test loop...")
         with torch.no_grad():
             for batch, labels in test_loader:
                 # split up batch into support/query sets/labels
@@ -240,7 +242,7 @@ if __name__ == "__main__":
                 total_corr += corr_pred
                 total_num += targets.shape[0]
                 #raise SystemExit(0)
-
+        print("Finished test loop.")
         mean_acc = total_corr / total_num
         print("Mean Accuracy of Test set: {}".format(mean_acc))
 
