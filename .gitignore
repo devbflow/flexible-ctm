@@ -133,3 +133,6 @@ dmypy.json
 
 # Ignore Image folders
 images/
+
+# ignore zip files
+*.zip
