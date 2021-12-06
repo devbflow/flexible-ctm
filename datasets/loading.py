@@ -239,7 +239,7 @@ def make_subsplit(dataset, superfname, subsplit=None, frac=0.25, mode='inorder')
         subfname = '{}/{}.csv'.format(dataset, subsplit)
     else:
         subfname = '{}/{}_{}p_{}.csv'.format(dataset, superfname, int(frac*100), mode)
-    subdf.to_csv(subfname)
+    subdf.to_csv(subfname, index=False)
 
 
 if __name__ == "__main__":
@@ -247,7 +247,7 @@ if __name__ == "__main__":
                             n_way=2,
                             k_shot=5,
                             include_query=True,
-                            split='test',
+                            split='test_25p_inorder',
                             shuffle=True)
     # loader check
     print("get_loader test...")
