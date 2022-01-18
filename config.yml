@@ -13,7 +13,7 @@
 ### MODEL CONFIG ###
 model:
     parts:
-        # disabled parts become identity blocks
+        # disabled parts become identity blocks or omitted (depends on main script)
         backbone: True
         ctm: True
         metric: True
@@ -44,7 +44,7 @@ model:
         # the name key is mandatory and chooses the metric
         name: "pairwise"
         trainable: False # supplied to metric
-        # everything below is supplied to the metric module as custom kwargs
+        # below is supplied as custom **kwargs
         p: 2.0
 
 ### HARDWARE CONFIG ###
@@ -61,7 +61,7 @@ training:
     epochs: 100
     optimizer:
         name: "adam"
-        # optimizer kwargs below directly supplied to optimizer
+        # below is supplied to optimizer as **kwargs
         lr: 0.001
         weight_decay: 0.0005
     loss: "crossentropy"

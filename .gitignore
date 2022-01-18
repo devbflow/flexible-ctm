@@ -136,3 +136,4 @@ images/
 
 # ignore zip files
 *.zip
+*.z*

@@ -2,10 +2,15 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+# supported activation functions, can be extended
 ACTIVATIONS = {'relu': nn.ReLU,
-               'leaky': nn.LeakyReLU}
+               'leaky': nn.LeakyReLU,
+               'sigmoid': nn.Sigmoid,
+               'softplus': nn.Softplus,
+               'tanh': nn.Tanh,
+               'elu': nn.ELU}
 
-def make_layers(structure, input_channels, ret_type='seq'):
+def make_layers(structure, input_channels, expansion=1, ret_type='seq'):
     """
     Receives a structural configuration and builds layers with respect to the
     configuration given.
@@ -17,6 +22,8 @@ def make_layers(structure, input_channels, ret_type='seq'):
         structural configuration as parsed from config.yml
     input_channels : int
         number of input channels for the first layer
+    expansion : int
+        expansion for consecutive layers, multiplies node number by value
     ret_type : str, optional
         return type, can be 'list' or 'seq' for ModuleList/Sequential respectively
 
@@ -33,7 +40,7 @@ def make_layers(structure, input_channels, ret_type='seq'):
 
     lact = ACTIVATIONS[structure['activation']](inplace=True)
     ltype = structure['type'] # layer type
-    out_channels = 64 # base number, is being doubled every layer
+    out_channels = 64 # base number, multiplied by expansionn every layer
 
     if ret_type == 'list':
         layers = nn.ModuleList()
@@ -45,11 +52,11 @@ def make_layers(structure, input_channels, ret_type='seq'):
     for i in range(structure['num']):
         # in this loop, the layers are instantiated, followed by (if desired) batchnorm and activation
         if ltype.startswith('conv2d'):
-            layers.append(nn.Conv2d(in_channels=input_channels, out_channels=out_channels*(2**i), kernel_size=int(ltype[-1])))
+            layers.append(nn.Conv2d(in_channels=input_channels, out_channels=out_channels*expansion, kernel_size=int(ltype[-1])))
         if structure['batchnorm']:
-            layers.append(nn.BatchNorm2d(out_channels*(2**i)))
+            layers.append(nn.BatchNorm2d(out_channels*expansion))
         layers.append(lact)
-        input_channels = out_channels*(2**i)
+        input_channels = out_channels * expansion
 
     if ret_type == 'seq':
         layers = nn.Sequential(*layers)
